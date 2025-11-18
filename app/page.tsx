@@ -6,16 +6,15 @@ export default function Home() {
   const [health, setHealth] = useState("Checking backend...");
 
   useEffect(() => {
-  fetch("https://a2c9799b-d236-49a9-8c7e-396f1c4d8c24-00-2elrt6cp24nmx.spock.replit.dev/api/health")
-    .then(res => res.json())
-    .then(data => {
-      setHealth(data.status ?? JSON.stringify(data));
-    })
-    .catch(err => {
-      setHealth("Error: " + err.message);
-    });
-}, []);
-
+    fetch("/api/backend-health")
+      .then((res) => res.json())
+      .then((data) => {
+        setHealth(data.status ?? JSON.stringify(data));
+      })
+      .catch((err) => {
+        setHealth("Error: " + err.message);
+      });
+  }, []);
 
   return (
     <main className="min-h-screen flex items-center justify-center">
