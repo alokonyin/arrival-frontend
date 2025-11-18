@@ -6,9 +6,12 @@ export default function Home() {
   const [health, setHealth] = useState("Checking backend...");
 
   useEffect(() => {
-    fetch("/api/backend-health")
+    fetch(
+      "https://a2c9799b-d236-49a9-8c7e-396f1c4d8c24-00-2elrt6cp24nmx.spock.replit.dev/api/health"
+    )
       .then((res) => res.json())
       .then((data) => {
+        // backend returns { "status": "healthy" } (and maybe more)
         setHealth(data.status ?? JSON.stringify(data));
       })
       .catch((err) => {
