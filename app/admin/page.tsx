@@ -57,10 +57,20 @@ export default function AdminPage() {
 
       try {
         const res = await fetch(`${API_BASE_URL}/api/institutions`);
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Institutions response is NOT JSON. Raw body:", text);
+          throw new Error("Backend did not return JSON for institutions");
+        }
+
         if (!res.ok) {
           throw new Error(`Failed to load institutions (${res.status})`);
         }
+
         const data = await res.json();
+        console.log("Institutions JSON:", data);
 
         // Handle both shapes:
         // 1) [{...}, {...}]
