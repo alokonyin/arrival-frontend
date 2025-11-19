@@ -372,7 +372,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-100 flex flex-col">
       <header className="border-b bg-white px-6 py-4">
         <h1 className="text-2xl font-semibold text-slate-900">
           Arrival Admin Dashboard
