@@ -14,23 +14,77 @@ export default function Home() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
 
   useEffect(() => {
-    const backendBase =process.env.NEXT_PUBLIC_API_BASE_URL;
+    const backendBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+    console.log("Home backend base URL:", backendBase);
 
-    // health
-    fetch(`${backendBase}/api/health`)
-      .then((res) => res.json())
-      .then((data) => setHealth(data.status ?? JSON.stringify(data)))
-      .catch((err) => setHealth("Error: " + err.message));
+    if (!backendBase) {
+      setHealth("Error: API base URL is not set");
+      return;
+    }
 
-    // institutions
-    fetch(`${backendBase}/api/institutions`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.status === "ok" && Array.isArray(data.institutions)) {
-          setInstitutions(data.institutions);
+    // ---- HEALTH CHECK ----
+    (async () => {
+      try {
+        const res = await fetch(`${backendBase}/api/health`);
+        const contentType = res.headers.get("content-type") || "";
+
+        // If backend sends HTML or something weird, show it
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Health response is NOT JSON. Raw body:", text);
+          setHealth("Error: backend did not return JSON");
+          return;
         }
-      })
-      .catch(() => {});
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("Health JSON:", data);
+        setHealth(data.status ?? JSON.stringify(data));
+      } catch (err: any) {
+        console.error("Health fetch error:", err);
+        setHealth("Error: " + (err.message || String(err)));
+      }
+    })();
+
+    // ---- INSTITUTIONS ----
+    (async () => {
+      try {
+        const res = await fetch(`${backendBase}/api/institutions`);
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Institutions response is NOT JSON. Raw body:", text);
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("Institutions JSON:", data);
+
+        // Handle both shapes:
+        // 1) [{...}, {...}]
+        // 2) { status: "ok", institutions: [...] }
+        if (Array.isArray(data)) {
+          setInstitutions(data as Institution[]);
+        } else if (
+          data.status === "ok" &&
+          Array.isArray(data.institutions)
+        ) {
+          setInstitutions(data.institutions as Institution[]);
+        } else {
+          console.error("Unexpected institutions response shape:", data);
+        }
+      } catch (err) {
+        console.error("Institutions fetch error:", err);
+      }
+    })();
   }, []);
 
   return (
@@ -68,3 +122,4 @@ export default function Home() {
     </main>
   );
 }
+

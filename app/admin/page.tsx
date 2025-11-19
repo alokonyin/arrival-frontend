@@ -44,24 +44,42 @@ export default function AdminPage() {
 
   // Fetch institutions on first render
   useEffect(() => {
+    console.log("Admin API_BASE_URL:", API_BASE_URL);
+
     const fetchInstitutions = async () => {
       if (!API_BASE_URL) {
         setError("API base URL is not set");
         return;
       }
+
       setLoadingInstitutions(true);
       setError(null);
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/institutions`);
         if (!res.ok) {
           throw new Error(`Failed to load institutions (${res.status})`);
         }
         const data = await res.json();
-        setInstitutions(data);
-        if (data.length > 0) {
-          setSelectedInstitutionId(data[0].id);
+
+        // Handle both shapes:
+        // 1) [{...}, {...}]
+        // 2) { status: "ok", institutions: [...] }
+        let list: Institution[] = [];
+        if (Array.isArray(data)) {
+          list = data;
+        } else if (Array.isArray(data.institutions)) {
+          list = data.institutions;
+        } else {
+          throw new Error("Unexpected institutions response shape");
+        }
+
+        setInstitutions(list);
+        if (list.length > 0) {
+          setSelectedInstitutionId(list[0].id);
         }
       } catch (err: any) {
+        console.error("Error loading institutions:", err);
         setError(err.message || "Failed to load institutions");
       } finally {
         setLoadingInstitutions(false);
@@ -75,23 +93,40 @@ export default function AdminPage() {
   useEffect(() => {
     const fetchPrograms = async () => {
       if (!selectedInstitutionId || !API_BASE_URL) return;
+
       setLoadingPrograms(true);
       setPrograms([]);
       setSelectedProgramId("");
       setStudents([]);
       setError(null);
+
       try {
         const url = `${API_BASE_URL}/api/programs?institution_id=${selectedInstitutionId}`;
         const res = await fetch(url);
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Programs response is NOT JSON. Raw body:", text);
+          throw new Error("Backend did not return JSON for programs");
+        }
+
         if (!res.ok) {
           throw new Error(`Failed to load programs (${res.status})`);
         }
+
         const data = await res.json();
+        console.log("Programs JSON:", data);
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected programs response shape");
+        }
         setPrograms(data);
         if (data.length > 0) {
           setSelectedProgramId(data[0].id);
         }
       } catch (err: any) {
+        console.error("Error loading programs:", err);
         setError(err.message || "Failed to load programs");
       } finally {
         setLoadingPrograms(false);
@@ -105,18 +140,35 @@ export default function AdminPage() {
   useEffect(() => {
     const fetchStudents = async () => {
       if (!selectedProgramId || !API_BASE_URL) return;
+
       setLoadingStudents(true);
       setStudents([]);
       setError(null);
+
       try {
         const url = `${API_BASE_URL}/api/students?program_id=${selectedProgramId}`;
         const res = await fetch(url);
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Students response is NOT JSON. Raw body:", text);
+          throw new Error("Backend did not return JSON for students");
+        }
+
         if (!res.ok) {
           throw new Error(`Failed to load students (${res.status})`);
         }
+
         const data = await res.json();
+        console.log("Students JSON:", data);
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected students response shape");
+        }
         setStudents(data);
       } catch (err: any) {
+        console.error("Error loading students:", err);
         setError(err.message || "Failed to load students");
       } finally {
         setLoadingStudents(false);
