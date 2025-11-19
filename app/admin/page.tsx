@@ -376,7 +376,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-100 flex flex-col">
       <header className="border-b bg-white px-6 py-4">
         <h1 className="text-2xl font-semibold text-slate-900">
-          Arrival Admin Dashboard
+          Arrival Admin Dashboard [BUILD v2025-11-19]
         </h1>
         <p className="text-sm text-slate-500">
           Track programs, students, and review documents for your partner institutions.
