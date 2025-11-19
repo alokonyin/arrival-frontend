@@ -2,9 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-// Force dynamic rendering
-export const dynamic = 'force-dynamic';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 type Institution = {
