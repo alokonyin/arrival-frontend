@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+// Force rebuild: 2025-11-19T23:05:00Z
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 type Institution = {
