@@ -378,7 +378,7 @@ export default function AdminPage() {
           Arrival Admin Dashboard
         </h1>
         <p className="text-sm text-slate-500">
-          Track programs and students for your partner institutions.
+          Track programs, students, and review documents for your partner institutions.
         </p>
       </header>
 
