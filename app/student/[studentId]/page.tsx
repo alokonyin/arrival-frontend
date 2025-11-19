@@ -14,6 +14,9 @@ type ChecklistItem = {
   sort_order: number;
   status: string; // PENDING or DONE
   completed_at?: string | null;
+  requires_document: boolean;
+  has_document: boolean;
+  document_url?: string | null;
 };
 
 export default function StudentChecklistPage() {
@@ -24,6 +27,8 @@ export default function StudentChecklistPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
 
   useEffect(() => {
     const fetchChecklist = async () => {
@@ -86,6 +91,62 @@ export default function StudentChecklistPage() {
       setError(err.message || "Failed to update step");
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleFileChange = (checklistStepId: string, file: File | null) => {
+    if (file) {
+      setSelectedFiles((prev) => ({ ...prev, [checklistStepId]: file }));
+    } else {
+      setSelectedFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[checklistStepId];
+        return updated;
+      });
+    }
+  };
+
+  const handleUpload = async (checklistStepId: string) => {
+    if (!API_BASE_URL || !studentId) return;
+
+    const file = selectedFiles[checklistStepId];
+    if (!file) {
+      setError("Please select a file to upload");
+      return;
+    }
+
+    try {
+      setUploadingId(checklistStepId);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append("student_id", studentId);
+      formData.append("checklist_step_id", checklistStepId);
+      formData.append("file", file);
+
+      const res = await fetch(`${API_BASE_URL}/api/student-documents/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to upload document (${res.status})`);
+      }
+
+      // Clear selected file for this step
+      handleFileChange(checklistStepId, null);
+
+      // Re-fetch checklist to get updated document status
+      const refreshed = await fetch(
+        `${API_BASE_URL}/api/student-checklist?student_id=${studentId}`
+      );
+      const data = await refreshed.json();
+      setItems(data);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      setError(err.message || "Failed to upload document");
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -155,6 +216,59 @@ export default function StudentChecklistPage() {
                       <p className="text-[10px] text-emerald-600 mt-1">
                         Marked complete.
                       </p>
+                    )}
+
+                    {/* Document upload controls */}
+                    {item.requires_document && (
+                      <div className="mt-2 pt-2 border-t border-slate-200">
+                        {item.has_document && item.document_url ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-emerald-600 font-medium">
+                              Document uploaded
+                            </span>
+                            <a
+                              href={item.document_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-blue-600 underline hover:text-blue-800"
+                            >
+                              View
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            <label className="block text-[10px] text-slate-600 font-medium">
+                              Upload required document:
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                onChange={(e) =>
+                                  handleFileChange(
+                                    item.checklist_step_id,
+                                    e.target.files?.[0] || null
+                                  )
+                                }
+                                className="text-[10px] text-slate-600 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-[10px] file:font-medium file:text-slate-700 hover:file:bg-slate-200"
+                              />
+                              <button
+                                onClick={() =>
+                                  handleUpload(item.checklist_step_id)
+                                }
+                                disabled={
+                                  !selectedFiles[item.checklist_step_id] ||
+                                  uploadingId === item.checklist_step_id
+                                }
+                                className="rounded bg-blue-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
+                              >
+                                {uploadingId === item.checklist_step_id
+                                  ? "Uploading..."
+                                  : "Upload"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center">
