@@ -14,8 +14,7 @@ export default function Home() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
 
   useEffect(() => {
-    const backendBase =
-      "https://a2c9799b-d236-49a9-8c7e-396f1c4d8c24-00-2elrt6cp24nmx.spock.replit.dev";
+    const backendBase =process.env.NEXT_PUBLIC_API_BASE_URL;
 
     // health
     fetch(`${backendBase}/api/health`)
