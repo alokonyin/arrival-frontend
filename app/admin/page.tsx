@@ -29,6 +29,16 @@ type Student = {
   risk_level: string;
 };
 
+type ChecklistStep = {
+  id: string;
+  program_id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  is_required: boolean;
+  sort_order: number;
+};
+
 export default function AdminPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string>("");
@@ -39,6 +49,14 @@ export default function AdminPage() {
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
+
+  const [checklist, setChecklist] = useState<ChecklistStep[]>([]);
+  const [loadingChecklist, setLoadingChecklist] = useState(false);
+
+  // form state for a new step
+  const [newStepTitle, setNewStepTitle] = useState("");
+  const [newStepCategory, setNewStepCategory] = useState("");
+  const [newStepDescription, setNewStepDescription] = useState("");
 
   const [error, setError] = useState<string | null>(null);
 
@@ -188,6 +206,85 @@ export default function AdminPage() {
     fetchStudents();
   }, [selectedProgramId]);
 
+  // Fetch checklist steps when program changes
+  useEffect(() => {
+    const fetchChecklist = async () => {
+      if (!selectedProgramId || !API_BASE_URL) return;
+
+      setLoadingChecklist(true);
+      setChecklist([]);
+      setError(null);
+
+      try {
+        const url = `${API_BASE_URL}/api/program-checklist?program_id=${selectedProgramId}`;
+        const res = await fetch(url);
+        const contentType = res.headers.get("content-type") || "";
+
+        if (!contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Checklist response is NOT JSON. Raw body:", text);
+          throw new Error("Backend did not return JSON for checklist");
+        }
+
+        if (!res.ok) {
+          throw new Error(`Failed to load checklist (${res.status})`);
+        }
+
+        const data = await res.json();
+        console.log("Checklist JSON:", data);
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected checklist response shape");
+        }
+        setChecklist(data);
+      } catch (err: any) {
+        console.error("Error loading checklist:", err);
+        setError(err.message || "Failed to load checklist");
+      } finally {
+        setLoadingChecklist(false);
+      }
+    };
+
+    fetchChecklist();
+  }, [selectedProgramId]);
+
+  const handleAddStep = async () => {
+    if (!API_BASE_URL || !selectedProgramId || !newStepTitle.trim()) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/api/program-checklist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          program_id: selectedProgramId,
+          title: newStepTitle.trim(),
+          description: newStepDescription.trim() || null,
+          category: newStepCategory.trim() || null,
+          is_required: true,
+          sort_order: checklist.length + 1,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to create step (${res.status})`);
+      }
+
+      const created = await res.json();
+      // append to local list
+      setChecklist((prev) => [...prev, created]);
+      // clear the form
+      setNewStepTitle("");
+      setNewStepDescription("");
+      setNewStepCategory("");
+    } catch (err: any) {
+      console.error("Error creating checklist step:", err);
+      setError(err.message || "Failed to create checklist step");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="border-b bg-white px-6 py-4">
@@ -322,6 +419,98 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </section>
+
+        {/* Checklist for selected program */}
+        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-medium text-slate-800">
+              4. Arrival Checklist for this Program
+            </h2>
+            {loadingChecklist && (
+              <span className="text-xs text-slate-500">Loading…</span>
+            )}
+          </div>
+
+          {selectedProgramId === "" ? (
+            <p className="text-sm text-slate-500">
+              Select a program to see its checklist.
+            </p>
+          ) : (
+            <>
+              {/* Existing steps */}
+              {checklist.length === 0 ? (
+                <p className="text-sm text-slate-500 mb-3">
+                  No steps defined yet. Add the first arrival step for this program.
+                </p>
+              ) : (
+                <ul className="space-y-2 mb-4">
+                  {checklist.map((step) => (
+                    <li
+                      key={step.id}
+                      className="flex items-start justify-between border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <div className="font-medium">{step.title}</div>
+                        {step.description && (
+                          <div className="text-slate-600 text-xs">
+                            {step.description}
+                          </div>
+                        )}
+                        {step.category && (
+                          <span className="inline-flex mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
+                            {step.category}
+                          </span>
+                        )}
+                      </div>
+                      {step.is_required && (
+                        <span className="text-[10px] text-rose-600 font-semibold">
+                          REQUIRED
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Add new step form */}
+              <div className="border-t pt-3 mt-2">
+                <h3 className="text-sm font-medium text-slate-800 mb-2">
+                  Add a new checklist step
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Step title (e.g. Upload passport)"
+                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    value={newStepTitle}
+                    onChange={(e) => setNewStepTitle(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Category (e.g. visa, docs, travel)"
+                    className="sm:w-40 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    value={newStepCategory}
+                    onChange={(e) => setNewStepCategory(e.target.value)}
+                  />
+                </div>
+                <textarea
+                  placeholder="Optional description or instructions"
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  rows={2}
+                  value={newStepDescription}
+                  onChange={(e) => setNewStepDescription(e.target.value)}
+                />
+                <button
+                  onClick={handleAddStep}
+                  className="mt-2 inline-flex items-center rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
+                  disabled={!newStepTitle.trim() || !selectedProgramId}
+                >
+                  Add Step
+                </button>
+              </div>
+            </>
           )}
         </section>
       </main>
