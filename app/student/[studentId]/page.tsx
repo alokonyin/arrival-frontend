@@ -266,6 +266,11 @@ export default function StudentChecklistPage() {
                                   : "Upload"}
                               </button>
                             </div>
+                            {!isDone && (
+                              <p className="text-[10px] text-amber-600 mt-1">
+                                ⚠️ You must upload a document before marking this step complete.
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -279,8 +284,16 @@ export default function StudentChecklistPage() {
                     ) : (
                       <button
                         onClick={() => handleMarkDone(item.checklist_step_id)}
-                        disabled={savingId === item.checklist_step_id}
-                        className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
+                        disabled={
+                          savingId === item.checklist_step_id ||
+                          (item.requires_document && !item.has_document)
+                        }
+                        className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                        title={
+                          item.requires_document && !item.has_document
+                            ? "Please upload the required document first"
+                            : ""
+                        }
                       >
                         {savingId === item.checklist_step_id
                           ? "Saving..."
