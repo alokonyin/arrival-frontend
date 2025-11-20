@@ -5,6 +5,15 @@ import { useParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+type DocumentInfo = {
+  id: string;
+  file_name: string;
+  public_url: string;
+  review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  reviewer_notes?: string | null;
+  uploaded_at?: string;
+};
+
 type ChecklistItem = {
   checklist_step_id: string;
   title: string;
@@ -17,6 +26,7 @@ type ChecklistItem = {
   requires_document: boolean;
   has_document: boolean;
   document_url?: string | null;
+  document?: DocumentInfo | null;
   review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
   reviewer_notes?: string | null;
 };
@@ -191,6 +201,12 @@ export default function StudentChecklistPage() {
           <ul className="space-y-3">
             {items.map((item) => {
               const isDone = item.status === "DONE";
+              // Handle both nested document object and flat fields
+              const hasDoc = item.has_document || !!item.document;
+              const docUrl = item.document?.public_url || item.document_url;
+              const reviewStatus = item.document?.review_status || item.review_status;
+              const reviewerNotes = item.document?.reviewer_notes || item.reviewer_notes;
+
               return (
                 <li
                   key={item.checklist_step_id}
@@ -226,14 +242,14 @@ export default function StudentChecklistPage() {
                     {/* Document upload controls */}
                     {item.requires_document && (
                       <div className="mt-2 pt-2 border-t border-slate-200">
-                        {item.has_document && item.document_url ? (
+                        {hasDoc && docUrl ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-emerald-600 font-medium">
                                 Document uploaded
                               </span>
                               <a
-                                href={item.document_url}
+                                href={docUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-[10px] text-blue-600 underline hover:text-blue-800"
@@ -243,26 +259,26 @@ export default function StudentChecklistPage() {
                             </div>
 
                             {/* Review status */}
-                            {item.review_status === "APPROVED" && (
+                            {reviewStatus === "APPROVED" && (
                               <p className="text-[10px] text-emerald-600 font-medium">
                                 ✅ Approved by staff
                               </p>
                             )}
 
-                            {item.review_status === "PENDING" && (
+                            {reviewStatus === "PENDING" && (
                               <p className="text-[10px] text-amber-600">
                                 ⏳ Pending review by your program
                               </p>
                             )}
 
-                            {item.review_status === "REJECTED" && (
+                            {reviewStatus === "REJECTED" && (
                               <div className="space-y-0.5">
                                 <p className="text-[10px] text-red-600 font-medium">
                                   ❌ Rejected - Please upload a new version
                                 </p>
-                                {item.reviewer_notes && (
+                                {reviewerNotes && (
                                   <p className="text-[10px] text-red-600 italic">
-                                    Reason: {item.reviewer_notes}
+                                    Reason: {reviewerNotes}
                                   </p>
                                 )}
                               </div>
@@ -319,11 +335,11 @@ export default function StudentChecklistPage() {
                         onClick={() => handleMarkDone(item.checklist_step_id)}
                         disabled={
                           savingId === item.checklist_step_id ||
-                          (item.requires_document && !item.has_document)
+                          (item.requires_document && !hasDoc)
                         }
                         className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
                         title={
-                          item.requires_document && !item.has_document
+                          item.requires_document && !hasDoc
                             ? "Please upload the required document first"
                             : ""
                         }
