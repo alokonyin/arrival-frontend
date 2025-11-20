@@ -17,6 +17,8 @@ type ChecklistItem = {
   requires_document: boolean;
   has_document: boolean;
   document_url?: string | null;
+  review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  reviewer_notes?: string | null;
 };
 
 export default function StudentChecklistPage() {
@@ -77,7 +79,10 @@ export default function StudentChecklistPage() {
       });
 
       if (!res.ok) {
-        throw new Error(`Failed to update step (${res.status})`);
+        // Try to get detailed error message from backend
+        const errorData = await res.json().catch(() => null);
+        const errorMessage = errorData?.detail || `Failed to update step (${res.status})`;
+        throw new Error(errorMessage);
       }
 
       // Re-fetch checklist to get updated statuses
@@ -222,18 +227,46 @@ export default function StudentChecklistPage() {
                     {item.requires_document && (
                       <div className="mt-2 pt-2 border-t border-slate-200">
                         {item.has_document && item.document_url ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-emerald-600 font-medium">
-                              Document uploaded
-                            </span>
-                            <a
-                              href={item.document_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-blue-600 underline hover:text-blue-800"
-                            >
-                              View
-                            </a>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-emerald-600 font-medium">
+                                Document uploaded
+                              </span>
+                              <a
+                                href={item.document_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[10px] text-blue-600 underline hover:text-blue-800"
+                              >
+                                View
+                              </a>
+                            </div>
+
+                            {/* Review status */}
+                            {item.review_status === "APPROVED" && (
+                              <p className="text-[10px] text-emerald-600 font-medium">
+                                ✅ Approved by staff
+                              </p>
+                            )}
+
+                            {item.review_status === "PENDING" && (
+                              <p className="text-[10px] text-amber-600">
+                                ⏳ Pending review by your program
+                              </p>
+                            )}
+
+                            {item.review_status === "REJECTED" && (
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] text-red-600 font-medium">
+                                  ❌ Rejected - Please upload a new version
+                                </p>
+                                {item.reviewer_notes && (
+                                  <p className="text-[10px] text-red-600 italic">
+                                    Reason: {item.reviewer_notes}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="space-y-1">
