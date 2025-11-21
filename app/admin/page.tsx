@@ -546,6 +546,45 @@ export default function AdminPage() {
     }
   };
 
+  // Handle resolving NGO request
+  const handleResolveNgoRequest = async (requestId: string, notes: string) => {
+    if (!apiBase) return;
+    setReviewingRequestId(requestId);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/requests/${requestId}/resolve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_notes: notes }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to resolve request (${res.status})`);
+      }
+
+      // Refresh NGO requests
+      if (selectedProgramId) {
+        await fetchNgoRequests(selectedProgramId);
+      }
+
+      // Clear notes
+      setRequestNotes((prev) => {
+        const updated = { ...prev };
+        delete updated[requestId];
+        return updated;
+      });
+    } catch (err: any) {
+      console.error("Error resolving request:", err);
+      setError(err.message || "Failed to resolve request");
+    } finally {
+      setReviewingRequestId(null);
+    }
+  };
+
   // Create a new program
   const handleCreateProgram = async () => {
     if (!apiBase || !selectedInstitutionId || !newProgramName.trim() || !newProgramTermLabel.trim() || !newProgramStartDate) {
@@ -1510,6 +1549,47 @@ export default function AdminPage() {
                         {req.created_at && (
                           <div className="mt-2 text-[10px] text-slate-400">
                             Submitted: {new Date(req.created_at).toLocaleString()}
+                          </div>
+                        )}
+
+                        {/* Action section for PENDING requests */}
+                        {req.status === "PENDING" && (
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <textarea
+                              value={requestNotes[req.id] || ""}
+                              onChange={(e) =>
+                                setRequestNotes((prev) => ({
+                                  ...prev,
+                                  [req.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="Add notes about how you resolved this (optional)..."
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              rows={2}
+                            />
+                            <button
+                              onClick={() =>
+                                handleResolveNgoRequest(
+                                  req.id,
+                                  requestNotes[req.id] || ""
+                                )
+                              }
+                              disabled={reviewingRequestId === req.id}
+                              className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                            >
+                              {reviewingRequestId === req.id
+                                ? "Resolving..."
+                                : "Mark as Resolved"}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Show admin notes for resolved requests */}
+                        {req.status !== "PENDING" && requestNotes[req.id] && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <p className="text-xs text-slate-500 italic">
+                              Resolution notes: {requestNotes[req.id]}
+                            </p>
                           </div>
                         )}
                       </li>
