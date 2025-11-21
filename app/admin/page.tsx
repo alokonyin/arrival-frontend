@@ -94,6 +94,9 @@ export default function AdminPage() {
   const [newStepDescription, setNewStepDescription] = useState("");
   const [creatingStep, setCreatingStep] = useState(false);
 
+  // template application state
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+
   // form state for creating a new program
   const [showProgramForm, setShowProgramForm] = useState(false);
   const [newProgramName, setNewProgramName] = useState("");
@@ -501,6 +504,41 @@ export default function AdminPage() {
   };
 
   // Create a new checklist step
+  // Apply checklist template
+  const handleApplyTemplate = async (templateType: "UNIVERSITY" | "NGO") => {
+    if (!apiBase || !selectedProgramId) return;
+    setApplyingTemplate(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/programs/${selectedProgramId}/apply-template`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template: templateType }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Failed to apply template (${res.status})`);
+      }
+
+      // Refresh checklist to show newly added steps
+      const refreshed = await fetch(
+        `${apiBase}/api/program-checklist?program_id=${selectedProgramId}`
+      );
+      const data = await refreshed.json();
+      setChecklist(data);
+    } catch (err: any) {
+      console.error("Error applying template:", err);
+      setError(err.message || "Failed to apply checklist template");
+    } finally {
+      setApplyingTemplate(false);
+    }
+  };
+
   const handleCreateStep = async () => {
     if (!apiBase || !selectedProgramId || !newStepTitle.trim()) return;
     setCreatingStep(true);
@@ -837,10 +875,37 @@ export default function AdminPage() {
               Select a program to see its checklist.
             </p>
           ) : checklist.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No steps defined yet. Add the first arrival step for this
-              program.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-slate-500">
+                No steps defined yet. You can apply a template or add steps manually.
+              </p>
+
+              {/* Template Application Buttons */}
+              {selectedProgram?.program_type && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-2">
+                    Apply Checklist Template
+                  </h3>
+                  <p className="text-xs text-slate-600 mb-3">
+                    {selectedProgram.program_type === "UNIVERSITY"
+                      ? "Apply a pre-built university arrival checklist with visa documents, health forms, housing, and travel steps."
+                      : "Apply a pre-built NGO checklist focused on self-reporting visa progress, travel plans, and support needs."}
+                  </p>
+                  <button
+                    onClick={() => handleApplyTemplate(selectedProgram.program_type as "UNIVERSITY" | "NGO")}
+                    disabled={applyingTemplate}
+                    className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {applyingTemplate
+                      ? "Applying Template..."
+                      : `Apply ${selectedProgram.program_type === "UNIVERSITY" ? "University" : "NGO"} Template`}
+                  </button>
+                  <p className="text-xs text-slate-500 mt-2">
+                    This will add {selectedProgram.program_type === "UNIVERSITY" ? "15" : "16"} pre-configured checklist steps.
+                  </p>
+                </div>
+              )}
+            </div>
           ) : (
             <ul className="space-y-2 mb-4">
               {checklist.map((step) => (
