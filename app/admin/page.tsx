@@ -613,16 +613,22 @@ export default function AdminPage() {
         throw new Error(errorData?.detail || `Bulk add failed (${res.status})`);
       }
 
+      // Parse response to ensure it's valid JSON
+      await res.json().catch(() => ({}));
+
       // Refresh students list
       if (selectedProgramId) {
         const refreshed = await fetch(
           `${apiBase}/api/programs/${selectedProgramId}/students`
         );
-        const data = await refreshed.json();
-        setStudents(data);
+        if (refreshed.ok) {
+          const data = await refreshed.json();
+          setStudents(data);
+        }
       }
 
       setBulkText("");
+      setBulkError(null);
     } catch (err: any) {
       console.error("Bulk add error:", err);
       setBulkError(err.message ?? "Failed to add students");
