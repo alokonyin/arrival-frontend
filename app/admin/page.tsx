@@ -434,6 +434,8 @@ export default function AdminPage() {
       }
 
       const data = await res.json();
+      console.log("NGO requests response:", data);
+      console.log("Requests array:", data.requests);
       setNgoRequests(data.requests || []);
     } catch (err: any) {
       console.error("Error loading NGO requests", err);
