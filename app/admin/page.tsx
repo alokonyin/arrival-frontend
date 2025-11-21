@@ -118,6 +118,7 @@ export default function AdminPage() {
   // collapsible sections state
   const [studentsCollapsed, setStudentsCollapsed] = useState(false);
   const [checklistCategoryCollapsed, setChecklistCategoryCollapsed] = useState<Record<string, boolean>>({});
+  const [requestsCollapsed, setRequestsCollapsed] = useState(false);
 
   // bulk student upload state (NGO programs)
   const [bulkText, setBulkText] = useState("");
@@ -1466,9 +1467,29 @@ export default function AdminPage() {
         {selectedProgramId && (
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-medium text-slate-800">
-                5. Student Support Requests
-              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setRequestsCollapsed(!requestsCollapsed)}
+                  className="p-1 hover:bg-slate-100 rounded transition-colors"
+                  aria-label={requestsCollapsed ? "Expand requests" : "Collapse requests"}
+                >
+                  {requestsCollapsed ? (
+                    <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+                <h2 className="text-lg font-medium text-slate-800">
+                  5. Student Support Requests
+                </h2>
+                <span className="text-xs text-slate-500">
+                  ({isNGOProgram ? ngoRequests.length : requests.length})
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 {(loadingRequests || loadingNgoRequests) && (
                   <span className="text-xs text-slate-500">Loading…</span>
@@ -1486,7 +1507,7 @@ export default function AdminPage() {
             </div>
 
             {/* Show enriched NGO requests if NGO program */}
-            {isNGOProgram && (
+            {isNGOProgram && !requestsCollapsed && (
               <>
                 {requestsError && (
                   <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 mb-3">
@@ -1504,7 +1525,9 @@ export default function AdminPage() {
 
                 {ngoRequests.length > 0 && (
                   <ul className="space-y-3">
-                    {ngoRequests.map((req) => (
+                    {[...ngoRequests]
+                      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+                      .map((req) => (
                       <li
                         key={req.id}
                         className="border rounded-xl px-3 py-2 text-sm bg-slate-50"
@@ -1600,7 +1623,7 @@ export default function AdminPage() {
             )}
 
             {/* Show old requests for University programs */}
-            {isUniversityProgram && (
+            {isUniversityProgram && !requestsCollapsed && (
               <>
                 {requests.length === 0 ? (
                   <p className="text-sm text-slate-500">
@@ -1608,7 +1631,9 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <ul className="space-y-3">
-                    {requests.map((request) => (
+                    {[...requests]
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .map((request) => (
                   <li
                     key={request.id}
                     className="border rounded-lg p-3 text-sm"
