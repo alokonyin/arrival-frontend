@@ -51,6 +51,18 @@ type StudentDocument = {
   step_category?: string | null;
 };
 
+type StudentRequest = {
+  id: string;
+  student_id: string;
+  student_name?: string;
+  request_type: string;
+  description: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  admin_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export default function AdminPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string>("");
@@ -63,14 +75,18 @@ export default function AdminPage() {
 
   const [checklist, setChecklist] = useState<ChecklistStep[]>([]);
   const [documents, setDocuments] = useState<StudentDocument[]>([]);
+  const [requests, setRequests] = useState<StudentRequest[]>([]);
 
   const [loadingInstitutions, setLoadingInstitutions] = useState(false);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
+  const [requestNotes, setRequestNotes] = useState<Record<string, string>>({});
 
   // form state for creating a new checklist step
   const [newStepTitle, setNewStepTitle] = useState("");
@@ -303,6 +319,116 @@ export default function AdminPage() {
       setDocuments([]);
     }
   }, [selectedStudentId]);
+
+  // Fetch requests for the selected program
+  const fetchRequests = async (programId: string) => {
+    if (!programId || !apiBase) return;
+    setLoadingRequests(true);
+    setRequests([]);
+    setError(null);
+    try {
+      const url = `${apiBase}/api/admin/requests?program_id=${programId}`;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        throw new Error(`Failed to load requests (${res.status})`);
+      }
+
+      const data: StudentRequest[] = await res.json();
+      setRequests(data);
+    } catch (err: any) {
+      console.error("Error loading requests:", err);
+      setError(err.message || "Failed to load requests");
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedProgramId && isNGOProgram) {
+      fetchRequests(selectedProgramId);
+    } else {
+      setRequests([]);
+    }
+  }, [selectedProgramId, isNGOProgram]);
+
+  // Handle request approval
+  const handleApproveRequest = async (requestId: string, notes: string) => {
+    if (!apiBase) return;
+    setReviewingRequestId(requestId);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/requests/${requestId}/approve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_notes: notes }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to approve request (${res.status})`);
+      }
+
+      // Refresh requests
+      if (selectedProgramId) {
+        await fetchRequests(selectedProgramId);
+      }
+
+      // Clear notes
+      setRequestNotes((prev) => {
+        const updated = { ...prev };
+        delete updated[requestId];
+        return updated;
+      });
+    } catch (err: any) {
+      console.error("Error approving request:", err);
+      setError(err.message || "Failed to approve request");
+    } finally {
+      setReviewingRequestId(null);
+    }
+  };
+
+  // Handle request rejection
+  const handleRejectRequest = async (requestId: string, notes: string) => {
+    if (!apiBase) return;
+    setReviewingRequestId(requestId);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/requests/${requestId}/reject`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admin_notes: notes }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to reject request (${res.status})`);
+      }
+
+      // Refresh requests
+      if (selectedProgramId) {
+        await fetchRequests(selectedProgramId);
+      }
+
+      // Clear notes
+      setRequestNotes((prev) => {
+        const updated = { ...prev };
+        delete updated[requestId];
+        return updated;
+      });
+    } catch (err: any) {
+      console.error("Error rejecting request:", err);
+      setError(err.message || "Failed to reject request");
+    } finally {
+      setReviewingRequestId(null);
+    }
+  };
 
   // Create a new checklist step
   const handleCreateStep = async () => {
@@ -657,29 +783,117 @@ export default function AdminPage() {
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-medium text-slate-800">
-                5. Student Funding Requests
+                5. Student Support Requests
               </h2>
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                NGO Mode
-              </span>
+              <div className="flex items-center gap-2">
+                {loadingRequests && (
+                  <span className="text-xs text-slate-500">Loading…</span>
+                )}
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                  NGO Mode
+                </span>
+              </div>
             </div>
 
-            {!selectedStudentId ? (
+            {requests.length === 0 ? (
               <p className="text-sm text-slate-500">
-                Select a student to view their funding requests.
+                No student requests yet. Students can submit requests using the "Request Support" button in their dashboard.
               </p>
             ) : (
-              <div className="text-sm text-slate-500">
-                <p className="mb-2">Funding request management coming soon.</p>
-                <p className="text-xs">
-                  Students will be able to request:
-                  • SEVIS fee support
-                  • DS-160 fee support
-                  • Flight booking assistance
-                  • Laptop grants
-                  • Emergency funds
-                </p>
-              </div>
+              <ul className="space-y-3">
+                {requests.map((request) => (
+                  <li
+                    key={request.id}
+                    className="border rounded-lg p-3 text-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-slate-900">
+                            {request.student_name || "Student"}
+                          </span>
+                          <span className="text-xs text-slate-500">•</span>
+                          <span className="text-xs text-slate-600">
+                            {request.request_type}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              request.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : request.status === "REJECTED"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {request.status}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-xs mb-1">
+                          {request.description}
+                        </p>
+                        <p className="text-slate-400 text-[10px]">
+                          Submitted {new Date(request.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {request.status === "PENDING" && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <textarea
+                          value={requestNotes[request.id] || ""}
+                          onChange={(e) =>
+                            setRequestNotes((prev) => ({
+                              ...prev,
+                              [request.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Add notes for the student (optional)..."
+                          className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() =>
+                              handleApproveRequest(
+                                request.id,
+                                requestNotes[request.id] || ""
+                              )
+                            }
+                            disabled={reviewingRequestId === request.id}
+                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            {reviewingRequestId === request.id
+                              ? "Approving..."
+                              : "Approve"}
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleRejectRequest(
+                                request.id,
+                                requestNotes[request.id] || ""
+                              )
+                            }
+                            disabled={reviewingRequestId === request.id}
+                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {reviewingRequestId === request.id
+                              ? "Rejecting..."
+                              : "Reject"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {request.status !== "PENDING" && request.admin_notes && (
+                      <div className="mt-2 pt-2 border-t border-slate-200">
+                        <p className="text-xs text-slate-500 italic">
+                          Admin response: {request.admin_notes}
+                        </p>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         )}
