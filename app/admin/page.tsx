@@ -17,6 +17,7 @@ type Program = {
   name: string;
   term_label: string;
   term_start_date: string;
+  program_type?: "UNIVERSITY" | "NGO";
 };
 
 type Student = {
@@ -78,6 +79,11 @@ export default function AdminPage() {
   const [creatingStep, setCreatingStep] = useState(false);
 
   const apiBase = API_BASE_URL;
+
+  // Get selected program object
+  const selectedProgram = programs.find((p) => p.id === selectedProgramId);
+  const isUniversityProgram = selectedProgram?.program_type === "UNIVERSITY";
+  const isNGOProgram = selectedProgram?.program_type === "NGO";
 
   // Fetch institutions on first render
   useEffect(() => {
@@ -435,13 +441,22 @@ export default function AdminPage() {
                 <button
                   key={program.id}
                   onClick={() => setSelectedProgramId(program.id)}
-                  className={`px-3 py-1.5 text-sm rounded-full border ${
+                  className={`px-3 py-1.5 text-sm rounded-full border flex items-center gap-2 ${
                     selectedProgramId === program.id
                       ? "bg-blue-600 text-white border-blue-600"
                       : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
                   }`}
                 >
-                  {program.name} ({program.term_label})
+                  <span>{program.name} ({program.term_label})</span>
+                  {program.program_type && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      program.program_type === "UNIVERSITY"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
+                    } ${selectedProgramId === program.id ? "opacity-90" : ""}`}>
+                      {program.program_type === "UNIVERSITY" ? "🎓 UNIV" : "🤝 NGO"}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -603,37 +618,71 @@ export default function AdminPage() {
           )}
         </section>
 
-        {/* 5. Documents for selected student */}
-        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-medium text-slate-800">
-              5. Documents for Selected Student
-            </h2>
-            {loadingDocuments && (
-              <span className="text-xs text-slate-500">Loading…</span>
-            )}
-          </div>
+        {/* 5. Documents for selected student (UNIVERSITY mode only) */}
+        {isUniversityProgram && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-medium text-slate-800">
+                5. Documents for Selected Student
+              </h2>
+              {loadingDocuments && (
+                <span className="text-xs text-slate-500">Loading…</span>
+              )}
+            </div>
 
-          {!selectedStudentId ? (
-            <p className="text-sm text-slate-500">
-              Select a student to view their uploaded documents.
-            </p>
-          ) : documents.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              This student has not uploaded any documents yet.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {documents.map((doc) => (
-                <DocumentRow
-                  key={doc.id}
-                  doc={doc}
-                  onReview={reviewDocument}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+            {!selectedStudentId ? (
+              <p className="text-sm text-slate-500">
+                Select a student to view their uploaded documents.
+              </p>
+            ) : documents.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                This student has not uploaded any documents yet.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {documents.map((doc) => (
+                  <DocumentRow
+                    key={doc.id}
+                    doc={doc}
+                    onReview={reviewDocument}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+        {/* 5. Student Requests (NGO mode only) */}
+        {isNGOProgram && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-medium text-slate-800">
+                5. Student Funding Requests
+              </h2>
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                NGO Mode
+              </span>
+            </div>
+
+            {!selectedStudentId ? (
+              <p className="text-sm text-slate-500">
+                Select a student to view their funding requests.
+              </p>
+            ) : (
+              <div className="text-sm text-slate-500">
+                <p className="mb-2">Funding request management coming soon.</p>
+                <p className="text-xs">
+                  Students will be able to request:
+                  • SEVIS fee support
+                  • DS-160 fee support
+                  • Flight booking assistance
+                  • Laptop grants
+                  • Emergency funds
+                </p>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );
