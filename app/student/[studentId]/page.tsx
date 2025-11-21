@@ -56,6 +56,7 @@ export default function StudentChecklistPage() {
 
   // Request support state
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestRecipientType, setRequestRecipientType] = useState<"UNIVERSITY" | "NGO" | null>(null);
   const [requests, setRequests] = useState<StudentRequest[]>([]);
   const [requestType, setRequestType] = useState("");
   const [requestDescription, setRequestDescription] = useState("");
@@ -202,7 +203,7 @@ export default function StudentChecklistPage() {
 
   // Submit a new request
   const handleSubmitRequest = async () => {
-    if (!API_BASE_URL || !studentId || !requestType || !requestDescription.trim()) {
+    if (!API_BASE_URL || !studentId || !requestType || !requestDescription.trim() || !requestRecipientType) {
       setError("Please select a request type and provide a description");
       return;
     }
@@ -219,6 +220,7 @@ export default function StudentChecklistPage() {
           body: JSON.stringify({
             request_type: requestType,
             description: requestDescription,
+            recipient_type: requestRecipientType,
           }),
         }
       );
@@ -231,6 +233,7 @@ export default function StudentChecklistPage() {
       // Success - refresh requests and close modal
       await fetchRequests();
       setShowRequestModal(false);
+      setRequestRecipientType(null);
       setRequestType("");
       setRequestDescription("");
     } catch (err: any) {
@@ -268,12 +271,26 @@ export default function StudentChecklistPage() {
               Complete each step below to get ready for your arrival on campus.
             </p>
           </div>
-          <button
-            onClick={() => setShowRequestModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Request Support
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setRequestRecipientType("UNIVERSITY");
+                setShowRequestModal(true);
+              }}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Request University Support
+            </button>
+            <button
+              onClick={() => {
+                setRequestRecipientType("NGO");
+                setShowRequestModal(true);
+              }}
+              className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              Request Financial Support
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -519,7 +536,9 @@ export default function StudentChecklistPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
             <h2 className="text-xl font-semibold text-slate-900 mb-4">
-              Request Support
+              {requestRecipientType === "UNIVERSITY"
+                ? "Request University Support"
+                : "Request Financial Support"}
             </h2>
 
             <div className="space-y-4">
@@ -533,16 +552,28 @@ export default function StudentChecklistPage() {
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a request type...</option>
-                  <option value="SEVIS Fee Support">SEVIS Fee Support ($350)</option>
-                  <option value="DS-160 Fee Support">DS-160 Fee Support ($160)</option>
-                  <option value="Flight Booking">Flight Booking Assistance</option>
-                  <option value="Laptop Grant">Laptop or Tech Grant</option>
-                  <option value="Emergency Funds">Emergency Funds</option>
-                  <option value="Visa Appointment">Visa Appointment Help</option>
-                  <option value="Housing Question">Housing Question</option>
-                  <option value="I-20 Delay">I-20 Delay Concern</option>
-                  <option value="Visa Delay">Visa Delay Concern</option>
-                  <option value="Other">Other Support</option>
+                  {requestRecipientType === "NGO" ? (
+                    <>
+                      <option value="SEVIS Fee Support">SEVIS Fee Support ($350)</option>
+                      <option value="DS-160 Fee Support">DS-160 Fee Support ($160)</option>
+                      <option value="Flight Booking">Flight Booking Assistance</option>
+                      <option value="Laptop Grant">Laptop or Tech Grant</option>
+                      <option value="Emergency Funds">Emergency Funds</option>
+                      <option value="Winter Clothing">Winter Clothing Support</option>
+                      <option value="Other Financial">Other Financial Support</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="I-20 Delay">I-20 Delay Concern</option>
+                      <option value="Housing Question">Housing Question</option>
+                      <option value="Visa Appointment">Visa Appointment Help</option>
+                      <option value="Visa Delay">Visa Delay Concern</option>
+                      <option value="Health/Immunization">Health/Immunization Question</option>
+                      <option value="Orientation">Orientation Question</option>
+                      <option value="Campus Logistics">Campus Logistics</option>
+                      <option value="Other University">Other University Support</option>
+                    </>
+                  )}
                 </select>
               </div>
 
