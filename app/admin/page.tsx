@@ -618,12 +618,17 @@ export default function AdminPage() {
 
       // Refresh students list
       if (selectedProgramId) {
+        console.log("Refreshing students after bulk add...");
         const refreshed = await fetch(
           `${apiBase}/api/programs/${selectedProgramId}/students`
         );
+        console.log("Refresh response status:", refreshed.status);
         if (refreshed.ok) {
           const data = await refreshed.json();
+          console.log("Refreshed students data:", data);
           setStudents(data);
+        } else {
+          console.error("Failed to refresh students:", refreshed.status);
         }
       }
 
