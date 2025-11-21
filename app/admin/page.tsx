@@ -620,7 +620,7 @@ export default function AdminPage() {
       if (selectedProgramId) {
         console.log("Refreshing students after bulk add...");
         const refreshed = await fetch(
-          `${apiBase}/api/students?program_id=${selectedProgramId}`
+          `${apiBase}/api/students/programs/${selectedProgramId}`
         );
         console.log("Refresh response status:", refreshed.status);
         if (refreshed.ok) {
