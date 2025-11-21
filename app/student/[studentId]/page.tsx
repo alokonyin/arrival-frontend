@@ -242,7 +242,7 @@ export default function StudentChecklistPage() {
                     {/* Document upload controls */}
                     {item.requires_document && (
                       <div className="mt-2 pt-2 border-t border-slate-200">
-                        {hasDoc && docUrl ? (
+                        {hasDoc && docUrl && reviewStatus !== "REJECTED" ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] text-emerald-600 font-medium">
@@ -270,24 +270,35 @@ export default function StudentChecklistPage() {
                                 ⏳ Pending review by your program
                               </p>
                             )}
-
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {/* Show rejection message if document was rejected */}
                             {reviewStatus === "REJECTED" && (
-                              <div className="space-y-0.5">
+                              <div className="mb-2 space-y-0.5">
                                 <p className="text-[10px] text-red-600 font-medium">
-                                  ❌ Rejected - Please upload a new version
+                                  ❌ Document rejected - Please upload a new version
                                 </p>
                                 {reviewerNotes && (
                                   <p className="text-[10px] text-red-600 italic">
                                     Reason: {reviewerNotes}
                                   </p>
                                 )}
+                                {hasDoc && docUrl && (
+                                  <a
+                                    href={docUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[10px] text-blue-600 underline hover:text-blue-800"
+                                  >
+                                    View rejected document
+                                  </a>
+                                )}
                               </div>
                             )}
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
+
                             <label className="block text-[10px] text-slate-600 font-medium">
-                              Upload required document:
+                              {reviewStatus === "REJECTED" ? "Upload new version:" : "Upload required document:"}
                             </label>
                             <div className="flex items-center gap-2">
                               <input
@@ -312,10 +323,12 @@ export default function StudentChecklistPage() {
                               >
                                 {uploadingId === item.checklist_step_id
                                   ? "Uploading..."
+                                  : reviewStatus === "REJECTED"
+                                  ? "Upload New"
                                   : "Upload"}
                               </button>
                             </div>
-                            {!isDone && (
+                            {!isDone && reviewStatus !== "REJECTED" && (
                               <p className="text-[10px] text-amber-600 mt-1">
                                 ⚠️ You must upload a document before marking this step complete.
                               </p>
@@ -335,12 +348,16 @@ export default function StudentChecklistPage() {
                         onClick={() => handleMarkDone(item.checklist_step_id)}
                         disabled={
                           savingId === item.checklist_step_id ||
-                          (item.requires_document && !hasDoc)
+                          (item.requires_document && reviewStatus !== "APPROVED")
                         }
                         className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
                         title={
-                          item.requires_document && !hasDoc
-                            ? "Please upload the required document first"
+                          item.requires_document && reviewStatus !== "APPROVED"
+                            ? reviewStatus === "REJECTED"
+                              ? "Document was rejected. Please upload a new version."
+                              : reviewStatus === "PENDING"
+                              ? "Waiting for document approval"
+                              : "Please upload the required document first"
                             : ""
                         }
                       >
