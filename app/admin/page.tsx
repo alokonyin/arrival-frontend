@@ -28,6 +28,8 @@ type Student = {
   personal_email: string;
   status: string;
   risk_level: string;
+  target_university?: string;
+  progress_fraction?: number; // 0-1 from backend
 };
 
 type ChecklistStep = {
@@ -100,6 +102,11 @@ export default function AdminPage() {
   // collapsible sections state
   const [studentsCollapsed, setStudentsCollapsed] = useState(false);
   const [checklistCategoryCollapsed, setChecklistCategoryCollapsed] = useState<Record<string, boolean>>({});
+
+  // bulk student upload state (NGO programs)
+  const [bulkText, setBulkText] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   // form state for creating a new program
   const [showProgramForm, setShowProgramForm] = useState(false);
@@ -560,6 +567,70 @@ export default function AdminPage() {
     }
   };
 
+  // Parse bulk text for student upload
+  const parseBulkText = (text: string) => {
+    // Expect lines like: Full Name, email@example.com, Stanford University
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        const parts = line.split(",").map((p) => p.trim());
+        return {
+          full_name: parts[0] ?? "",
+          personal_email: parts[1] ?? "",
+          target_university: parts[2] ?? "",
+        };
+      })
+      .filter((s) => s.full_name && s.personal_email && s.target_university);
+  };
+
+  // Handle bulk student upload
+  const handleBulkAdd = async () => {
+    if (!apiBase || !selectedProgramId || !bulkText.trim()) return;
+
+    setBulkLoading(true);
+    setBulkError(null);
+
+    try {
+      const students = parseBulkText(bulkText);
+      if (students.length === 0) {
+        setBulkError("No valid lines found. Use format: Name, email, university");
+        return;
+      }
+
+      const res = await fetch(
+        `${apiBase}/api/students/programs/${selectedProgramId}/bulk`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ students }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Bulk add failed (${res.status})`);
+      }
+
+      // Refresh students list
+      if (selectedProgramId) {
+        const refreshed = await fetch(
+          `${apiBase}/api/programs/${selectedProgramId}/students`
+        );
+        const data = await refreshed.json();
+        setStudents(data);
+      }
+
+      setBulkText("");
+    } catch (err: any) {
+      console.error("Bulk add error:", err);
+      setBulkError(err.message ?? "Failed to add students");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const handleCreateStep = async () => {
     if (!apiBase || !selectedProgramId || !newStepTitle.trim()) return;
     setCreatingStep(true);
@@ -856,8 +927,10 @@ export default function AdminPage() {
                   <tr className="border-b bg-slate-50 text-left text-xs font-semibold text-slate-600">
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Email</th>
+                    {isNGOProgram && <th className="px-3 py-2">University</th>}
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Risk</th>
+                    <th className="px-3 py-2">Progress</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -874,6 +947,11 @@ export default function AdminPage() {
                     >
                       <td className="px-3 py-2">{s.full_name}</td>
                       <td className="px-3 py-2">{s.personal_email}</td>
+                      {isNGOProgram && (
+                        <td className="px-3 py-2 text-xs text-slate-600">
+                          {s.target_university || "—"}
+                        </td>
+                      )}
                       <td className="px-3 py-2 text-xs">
                         <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5">
                           {s.status}
@@ -892,6 +970,29 @@ export default function AdminPage() {
                           {s.risk_level}
                         </span>
                       </td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const p = s.progress_fraction ?? 0;
+                          const pct = Math.round(p * 100);
+                          return (
+                            <div className="w-32">
+                              <div className="h-1.5 w-full bg-slate-200 rounded-full mb-1">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    pct === 100
+                                      ? "bg-emerald-500"
+                                      : pct >= 50
+                                      ? "bg-blue-500"
+                                      : "bg-amber-500"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-slate-600">{pct}%</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -899,6 +1000,40 @@ export default function AdminPage() {
             </div>
           ))}
         </section>
+
+        {/* Bulk Add Students (NGO programs only) */}
+        {isNGOProgram && selectedProgramId && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <h3 className="text-md font-semibold text-slate-800 mb-2">
+              Bulk Add Students
+            </h3>
+            <p className="text-xs text-slate-600 mb-3">
+              Add multiple students at once. One student per line:<br />
+              <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">
+                Name, email@example.com, Target University
+              </code>
+            </p>
+            <textarea
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm mb-2 font-mono"
+              rows={6}
+              placeholder={`Joyce Achieng, joyce@example.com, Stanford University\nKelvin Mwangi, kelvin@example.com, MIT\nAmina Deng, amina@example.com, Harvard University`}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+            />
+            {bulkError && (
+              <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                {bulkError}
+              </div>
+            )}
+            <button
+              onClick={handleBulkAdd}
+              disabled={bulkLoading || !bulkText.trim()}
+              className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {bulkLoading ? "Adding students..." : "Add Students"}
+            </button>
+          </section>
+        )}
 
         {/* 4. Checklist for this program */}
         <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">

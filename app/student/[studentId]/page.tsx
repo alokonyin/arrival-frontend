@@ -210,13 +210,54 @@ export default function StudentChecklistPage() {
     <main className="min-h-screen bg-slate-50 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
         <div className="flex items-start justify-between mb-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-semibold text-slate-900 mb-1">
               Your Arrival Checklist
             </h1>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-500 mb-3">
               Complete each step below to get ready for your arrival on campus.
             </p>
+            {items.length > 0 && (
+              <div className="mt-2">
+                {(() => {
+                  const completedCount = items.filter(item => item.status === "DONE").length;
+                  const totalCount = items.length;
+                  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-slate-700">
+                          Overall Progress
+                        </span>
+                        <span className="text-xs font-semibold text-slate-900">
+                          {completedCount} of {totalCount} steps completed
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            progressPct === 100
+                              ? "bg-emerald-500"
+                              : progressPct >= 50
+                              ? "bg-blue-500"
+                              : "bg-amber-500"
+                          }`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {progressPct === 100
+                          ? "🎉 All done! You're ready for arrival."
+                          : progressPct >= 50
+                          ? "Great progress! Keep it up."
+                          : "Let's get started on your checklist."}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
