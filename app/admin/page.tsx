@@ -68,6 +68,18 @@ type StudentRequest = {
   updated_at: string;
 };
 
+type StudentSupportRequest = {
+  id: string;
+  student_id: string;
+  student_name: string | null;
+  student_email: string | null;
+  target_university: string | null;
+  title: string | null;
+  description: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
 export default function AdminPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string>("");
@@ -119,6 +131,11 @@ export default function AdminPage() {
   const [editRequiresDoc, setEditRequiresDoc] = useState(false);
   const [editIsCritical, setEditIsCritical] = useState(false);
   const [savingStep, setSavingStep] = useState(false);
+
+  // NGO student support requests state
+  const [ngoRequests, setNgoRequests] = useState<StudentSupportRequest[]>([]);
+  const [loadingNgoRequests, setLoadingNgoRequests] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
 
   // form state for creating a new program
   const [showProgramForm, setShowProgramForm] = useState(false);
@@ -398,17 +415,48 @@ export default function AdminPage() {
     }
   };
 
+  // Fetch enriched NGO student support requests
+  const fetchNgoRequests = async (programId: string) => {
+    if (!programId || !apiBase) return;
+    setLoadingNgoRequests(true);
+    setRequestsError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/programs/${programId}/requests?recipient_type=NGO`
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to load NGO requests", text);
+        setRequestsError("Failed to load student requests");
+        return;
+      }
+
+      const data = await res.json();
+      setNgoRequests(data.requests || []);
+    } catch (err: any) {
+      console.error("Error loading NGO requests", err);
+      setRequestsError("Failed to load student requests");
+    } finally {
+      setLoadingNgoRequests(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedProgramId) {
       if (isNGOProgram) {
         // NGO admins see only NGO requests (financial support)
         fetchRequests(selectedProgramId, "NGO");
+        // Fetch enriched NGO requests with student info
+        fetchNgoRequests(selectedProgramId);
       } else if (isUniversityProgram) {
         // University admins see only UNIVERSITY requests (institutional support)
         fetchRequests(selectedProgramId, "UNIVERSITY");
       }
     } else {
       setRequests([]);
+      setNgoRequests([]);
     }
   }, [selectedProgramId, isNGOProgram, isUniversityProgram]);
 
@@ -1377,7 +1425,7 @@ export default function AdminPage() {
                 5. Student Support Requests
               </h2>
               <div className="flex items-center gap-2">
-                {loadingRequests && (
+                {(loadingRequests || loadingNgoRequests) && (
                   <span className="text-xs text-slate-500">Loading…</span>
                 )}
                 {selectedProgram?.program_type && (
@@ -1392,13 +1440,89 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {requests.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No student requests yet. Students can submit support requests using the "Request Support" buttons in their dashboard.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {requests.map((request) => (
+            {/* Show enriched NGO requests if NGO program */}
+            {isNGOProgram && (
+              <>
+                {requestsError && (
+                  <div className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-3 py-2 mb-3">
+                    {requestsError}
+                  </div>
+                )}
+
+                {!loadingNgoRequests && ngoRequests.length === 0 && !requestsError && (
+                  <p className="text-sm text-slate-500">
+                    No student requests yet. Students can submit requests using the{" "}
+                    <span className="font-medium">&quot;Request Support&quot;</span> button in their
+                    dashboard.
+                  </p>
+                )}
+
+                {ngoRequests.length > 0 && (
+                  <ul className="space-y-3">
+                    {ngoRequests.map((req) => (
+                      <li
+                        key={req.id}
+                        className="border rounded-xl px-3 py-2 text-sm bg-slate-50"
+                      >
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <div className="font-medium">
+                              {req.student_name || "Unknown student"}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {req.student_email && (
+                                <span className="mr-2">{req.student_email}</span>
+                              )}
+                              {req.target_university && (
+                                <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-[1px] text-[10px] uppercase tracking-wide">
+                                  {req.target_university}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {req.status && (
+                            <span className="text-[11px] rounded-full px-2 py-[2px] border border-slate-300 text-slate-700">
+                              {req.status}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2">
+                          {req.title && (
+                            <div className="text-xs font-semibold mb-1">
+                              {req.title}
+                            </div>
+                          )}
+                          {req.description && (
+                            <p className="text-xs text-slate-700 whitespace-pre-wrap">
+                              {req.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {req.created_at && (
+                          <div className="mt-2 text-[10px] text-slate-400">
+                            Submitted: {new Date(req.created_at).toLocaleString()}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+
+            {/* Show old requests for University programs */}
+            {isUniversityProgram && (
+              <>
+                {requests.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No student requests yet. Students can submit support requests using the "Request Support" buttons in their dashboard.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {requests.map((request) => (
                   <li
                     key={request.id}
                     className="border rounded-lg p-3 text-sm"
@@ -1491,8 +1615,10 @@ export default function AdminPage() {
                       </div>
                     )}
                   </li>
-                ))}
-              </ul>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </section>
         )}
