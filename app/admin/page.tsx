@@ -97,6 +97,10 @@ export default function AdminPage() {
   // template application state
   const [applyingTemplate, setApplyingTemplate] = useState(false);
 
+  // collapsible sections state
+  const [studentsCollapsed, setStudentsCollapsed] = useState(false);
+  const [checklistCategoryCollapsed, setChecklistCategoryCollapsed] = useState<Record<string, boolean>>({});
+
   // form state for creating a new program
   const [showProgramForm, setShowProgramForm] = useState(false);
   const [newProgramName, setNewProgramName] = useState("");
@@ -111,6 +115,23 @@ export default function AdminPage() {
   const selectedProgram = programs.find((p) => p.id === selectedProgramId);
   const isUniversityProgram = selectedProgram?.program_type === "UNIVERSITY";
   const isNGOProgram = selectedProgram?.program_type === "NGO";
+
+  // Group checklist by category
+  const groupedChecklist = checklist.reduce((acc, step) => {
+    const category = step.category || "Uncategorized";
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(step);
+    return acc;
+  }, {} as Record<string, ChecklistStep[]>);
+
+  const toggleCategory = (category: string) => {
+    setChecklistCategoryCollapsed(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
 
   // Fetch institutions on first render
   useEffect(() => {
@@ -797,14 +818,34 @@ export default function AdminPage() {
         {/* 3. Students list */}
         <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-medium text-slate-800">
-              3. Students in Selected Program
-            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setStudentsCollapsed(!studentsCollapsed)}
+                className="text-slate-600 hover:text-slate-800 transition-colors"
+                aria-label={studentsCollapsed ? "Expand students" : "Collapse students"}
+              >
+                {studentsCollapsed ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+              <h2 className="text-lg font-medium text-slate-800">
+                3. Students in Selected Program
+                {students.length > 0 && (
+                  <span className="ml-2 text-sm text-slate-500">({students.length})</span>
+                )}
+              </h2>
+            </div>
             {loadingStudents && (
               <span className="text-xs text-slate-500">Loading…</span>
             )}
           </div>
-          {students.length === 0 ? (
+          {!studentsCollapsed && (students.length === 0 ? (
             <p className="text-sm text-slate-500">
               No students found for this program yet.
             </p>
@@ -856,7 +897,7 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
         </section>
 
         {/* 4. Checklist for this program */}
@@ -907,33 +948,61 @@ export default function AdminPage() {
               )}
             </div>
           ) : (
-            <ul className="space-y-2 mb-4">
-              {checklist.map((step) => (
-                <li
-                  key={step.id}
-                  className="border rounded-lg p-3 text-sm flex justify-between items-center"
-                >
-                  <div>
-                    <div className="font-medium">{step.title}</div>
-                    {step.description && (
-                      <div className="text-slate-600 text-xs">
-                        {step.description}
-                      </div>
-                    )}
-                    {step.category && (
-                      <div className="text-xs text-slate-500">
-                        {step.category}
-                      </div>
-                    )}
-                  </div>
-                  {step.is_required && (
-                    <span className="text-xs uppercase text-red-500">
-                      REQUIRED
-                    </span>
+            <div className="space-y-3 mb-4">
+              {Object.entries(groupedChecklist).map(([category, steps]) => (
+                <div key={category} className="border rounded-lg overflow-hidden">
+                  {/* Category Header */}
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      {checklistCategoryCollapsed[category] ? (
+                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                      <span className="font-semibold text-sm text-slate-800 uppercase tracking-wide">
+                        {category}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        ({steps.length} {steps.length === 1 ? 'item' : 'items'})
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Category Items */}
+                  {!checklistCategoryCollapsed[category] && (
+                    <ul className="divide-y divide-slate-200">
+                      {steps.map((step) => (
+                        <li
+                          key={step.id}
+                          className="p-3 text-sm flex justify-between items-center hover:bg-slate-50"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900">{step.title}</div>
+                            {step.description && (
+                              <div className="text-slate-600 text-xs mt-1">
+                                {step.description}
+                              </div>
+                            )}
+                          </div>
+                          {step.is_required && (
+                            <span className="text-xs uppercase text-red-500 font-semibold ml-3">
+                              REQUIRED
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
 
           {/* New step form */}
