@@ -36,10 +36,13 @@ type ChecklistStep = {
   id: string;
   program_id: string;
   title: string;
-  description?: string;
-  category?: string;
+  description?: string | null;
+  category?: string | null;
   is_required: boolean;
   sort_order: number;
+  requires_document?: boolean;
+  is_critical?: boolean;
+  group_label?: string | null;
 };
 
 type StudentDocument = {
@@ -107,6 +110,15 @@ export default function AdminPage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+
+  // checklist step editing state
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editRequiresDoc, setEditRequiresDoc] = useState(false);
+  const [editIsCritical, setEditIsCritical] = useState(false);
+  const [savingStep, setSavingStep] = useState(false);
 
   // form state for creating a new program
   const [showProgramForm, setShowProgramForm] = useState(false);
@@ -682,6 +694,88 @@ export default function AdminPage() {
     }
   };
 
+  // Start editing a checklist step
+  const startEditingStep = (step: ChecklistStep) => {
+    setEditingStepId(step.id);
+    setEditTitle(step.title);
+    setEditCategory(step.category ?? "");
+    setEditDescription(step.description ?? "");
+    setEditRequiresDoc(step.requires_document ?? false);
+    setEditIsCritical(step.is_critical ?? false);
+  };
+
+  // Save edits to a checklist step
+  const saveStepEdits = async (stepId: string) => {
+    if (!apiBase || !selectedProgramId) return;
+    setSavingStep(true);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/programs/${selectedProgramId}/checklist/${stepId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: editTitle,
+            category: editCategory || null,
+            description: editDescription || null,
+            requires_document: editRequiresDoc,
+            is_critical: editIsCritical,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to update step", await res.text());
+        return;
+      }
+
+      // Refresh checklist from backend
+      const refreshed = await fetch(
+        `${apiBase}/api/program-checklist?program_id=${selectedProgramId}`
+      );
+      const data = await refreshed.json();
+      setChecklist(data);
+      setEditingStepId(null);
+    } catch (err: any) {
+      console.error("Error updating step:", err);
+      setError(err.message || "Failed to update step");
+    } finally {
+      setSavingStep(false);
+    }
+  };
+
+  // Delete (archive) a checklist step
+  const deleteStep = async (stepId: string) => {
+    if (!apiBase || !selectedProgramId) return;
+    const confirmDelete = window.confirm(
+      "Are you sure you want to remove this checklist item? Students will no longer see it."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/programs/${selectedProgramId}/checklist/${stepId}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        console.error("Failed to delete step", await res.text());
+        return;
+      }
+
+      // Refresh checklist from backend
+      const refreshed = await fetch(
+        `${apiBase}/api/program-checklist?program_id=${selectedProgramId}`
+      );
+      const data = await refreshed.json();
+      setChecklist(data);
+    } catch (err: any) {
+      console.error("Error deleting step:", err);
+      setError(err.message || "Failed to delete step");
+    }
+  };
+
   // Approve / reject document
   const reviewDocument = async (
     docId: string,
@@ -1125,22 +1219,106 @@ export default function AdminPage() {
                   {!checklistCategoryCollapsed[category] && (
                     <ul className="divide-y divide-slate-200">
                       {steps.map((step) => (
-                        <li
-                          key={step.id}
-                          className="p-3 text-sm flex justify-between items-center hover:bg-slate-50"
-                        >
-                          <div className="flex-1">
-                            <div className="font-medium text-slate-900">{step.title}</div>
-                            {step.description && (
-                              <div className="text-slate-600 text-xs mt-1">
-                                {step.description}
+                        <li key={step.id} className="p-3 hover:bg-slate-50">
+                          {/* Header row with Edit/Delete buttons */}
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm text-slate-900">
+                                {step.title}
                               </div>
-                            )}
+                              {step.category && (
+                                <div className="text-[11px] uppercase tracking-wide text-slate-500 mt-0.5">
+                                  {step.category}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 ml-3">
+                              {step.is_required && (
+                                <span className="text-xs uppercase text-red-500 font-semibold">
+                                  REQUIRED
+                                </span>
+                              )}
+                              <button
+                                onClick={() => startEditingStep(step)}
+                                className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteStep(step.id)}
+                                className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                          {step.is_required && (
-                            <span className="text-xs uppercase text-red-500 font-semibold ml-3">
-                              REQUIRED
-                            </span>
+
+                          {/* Description */}
+                          {step.description && editingStepId !== step.id && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              {step.description}
+                            </p>
+                          )}
+
+                          {/* Inline editor if this step is being edited */}
+                          {editingStepId === step.id && (
+                            <div className="mt-3 space-y-2 border-t pt-3 bg-slate-50 -mx-3 -mb-3 px-3 pb-3">
+                              <input
+                                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                placeholder="Step title"
+                              />
+                              <input
+                                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                                value={editCategory}
+                                onChange={(e) => setEditCategory(e.target.value)}
+                                placeholder="Category (e.g. VISA, TRAVEL)"
+                              />
+                              <textarea
+                                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                                rows={2}
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                placeholder="Optional description"
+                              />
+                              <div className="flex items-center gap-4 text-xs">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={editRequiresDoc}
+                                    onChange={(e) => setEditRequiresDoc(e.target.checked)}
+                                    className="rounded border-slate-300"
+                                  />
+                                  <span>Requires document</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={editIsCritical}
+                                    onChange={(e) => setEditIsCritical(e.target.checked)}
+                                    className="rounded border-slate-300"
+                                  />
+                                  <span>Critical for arrival</span>
+                                </label>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-3">
+                                <button
+                                  onClick={() => setEditingStepId(null)}
+                                  className="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-white transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => saveStepEdits(step.id)}
+                                  disabled={savingStep}
+                                  className="text-xs px-3 py-1.5 rounded bg-blue-600 text-white disabled:opacity-60 hover:bg-blue-700 transition-colors"
+                                >
+                                  {savingStep ? "Saving…" : "Save changes"}
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </li>
                       ))}
