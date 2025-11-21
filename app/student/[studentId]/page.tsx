@@ -37,6 +37,26 @@ export default function StudentChecklistPage() {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // Collapsible category state
+  const [categoryCollapsed, setCategoryCollapsed] = useState<Record<string, boolean>>({});
+
+  // Group checklist by category
+  const groupedItems = items.reduce((acc, item) => {
+    const category = item.category || "Other";
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(item);
+    return acc;
+  }, {} as Record<string, ChecklistItem[]>);
+
+  const toggleCategory = (category: string) => {
+    setCategoryCollapsed(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
   // Request support state
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestRecipientType, setRequestRecipientType] = useState<"UNIVERSITY" | "NGO" | null>(null);
@@ -233,63 +253,101 @@ export default function StudentChecklistPage() {
             Your program has not set up an arrival checklist yet.
           </p>
         ) : (
-          <ul className="space-y-3">
-            {items.map((item) => {
-              const isDone = item.status === "DONE";
+          <div className="space-y-4">
+            {Object.entries(groupedItems).map(([category, categoryItems]) => {
+              const completedCount = categoryItems.filter(item => item.status === "DONE").length;
+              const totalCount = categoryItems.length;
 
               return (
-                <li
-                  key={item.checklist_step_id}
-                  className="border rounded-lg px-3 py-2 flex items-start justify-between gap-3"
-                >
-                  <div>
+                <div key={category} className="border border-slate-200 rounded-lg overflow-hidden">
+                  {/* Category Header */}
+                  <button
+                    onClick={() => toggleCategory(category)}
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
-                        {item.title}
-                      </span>
-                      {item.is_required && (
-                        <span className="text-[10px] text-rose-600 font-semibold">
-                          REQUIRED
-                        </span>
+                      {categoryCollapsed[category] ? (
+                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       )}
+                      <span className="font-semibold text-sm text-slate-800 uppercase tracking-wide">
+                        {category}
+                      </span>
+                      <span className="text-xs text-slate-600">
+                        {completedCount} / {totalCount} completed
+                      </span>
                     </div>
-                    {item.description && (
-                      <p className="text-xs text-slate-600 mt-1">
-                        {item.description}
-                      </p>
-                    )}
-                    {item.category && (
-                      <span className="inline-flex mt-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
-                        {item.category}
+                    {completedCount === totalCount && (
+                      <span className="text-emerald-600 text-xs font-medium">
+                        ✓ All done
                       </span>
                     )}
-                    {isDone && item.completed_at && (
-                      <p className="text-[10px] text-emerald-600 mt-1">
-                        Marked complete.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center">
-                    {isDone ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-medium text-emerald-700">
-                        Done
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleMarkDone(item.checklist_step_id)}
-                        disabled={savingId === item.checklist_step_id}
-                        className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-                      >
-                        {savingId === item.checklist_step_id
-                          ? "Saving..."
-                          : "Mark as done"}
-                      </button>
-                    )}
-                  </div>
-                </li>
+                  </button>
+
+                  {/* Category Items */}
+                  {!categoryCollapsed[category] && (
+                    <ul className="divide-y divide-slate-200">
+                      {categoryItems.map((item) => {
+                        const isDone = item.status === "DONE";
+
+                        return (
+                          <li
+                            key={item.checklist_step_id}
+                            className="px-3 py-3 flex items-start justify-between gap-3 hover:bg-slate-50"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium text-sm ${isDone ? 'text-slate-500 line-through' : 'text-slate-900'}`}>
+                                  {item.title}
+                                </span>
+                                {item.is_required && !isDone && (
+                                  <span className="text-[10px] text-rose-600 font-semibold">
+                                    REQUIRED
+                                  </span>
+                                )}
+                              </div>
+                              {item.description && (
+                                <p className="text-xs text-slate-600 mt-1">
+                                  {item.description}
+                                </p>
+                              )}
+                              {isDone && item.completed_at && (
+                                <p className="text-[10px] text-emerald-600 mt-1">
+                                  ✓ Marked complete
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center">
+                              {isDone ? (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-medium text-emerald-700">
+                                  Done
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleMarkDone(item.checklist_step_id)}
+                                  disabled={savingId === item.checklist_step_id}
+                                  className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                                >
+                                  {savingId === item.checklist_step_id
+                                    ? "Saving..."
+                                    : "Mark as done"}
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
 
         {/* Student Requests Section */}
