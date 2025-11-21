@@ -976,162 +976,8 @@ export default function AdminPage() {
           )}
         </section>
 
-        {/* 5. Documents for selected student (UNIVERSITY mode only) */}
-        {isUniversityProgram && (
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-medium text-slate-800">
-                5. Documents for Selected Student
-              </h2>
-              {loadingDocuments && (
-                <span className="text-xs text-slate-500">Loading…</span>
-              )}
-            </div>
-
-            {!selectedStudentId ? (
-              <p className="text-sm text-slate-500">
-                Select a student to view their uploaded documents.
-              </p>
-            ) : documents.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                This student has not uploaded any documents yet.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {documents.map((doc) => (
-                  <DocumentRow
-                    key={doc.id}
-                    doc={doc}
-                    onReview={reviewDocument}
-                  />
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {/* 6. Student Institutional Requests (UNIVERSITY mode only) */}
-        {isUniversityProgram && (
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-medium text-slate-800">
-                6. Student Institutional Support Requests
-              </h2>
-              <div className="flex items-center gap-2">
-                {loadingRequests && (
-                  <span className="text-xs text-slate-500">Loading…</span>
-                )}
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                  University Mode
-                </span>
-              </div>
-            </div>
-
-            {requests.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                No student requests yet. Students can submit institutional questions using the "Request University Support" button in their dashboard.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {requests.map((request) => (
-                  <li
-                    key={request.id}
-                    className="border rounded-lg p-3 text-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-slate-900">
-                            {request.student_name || "Student"}
-                          </span>
-                          <span className="text-xs text-slate-500">•</span>
-                          <span className="text-xs text-slate-600">
-                            {request.request_type}
-                          </span>
-                          <span
-                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                              request.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-700"
-                                : request.status === "REJECTED"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {request.status}
-                          </span>
-                        </div>
-                        <p className="text-slate-600 text-xs mb-1">
-                          {request.description}
-                        </p>
-                        <p className="text-slate-400 text-[10px]">
-                          Submitted {new Date(request.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {request.status === "PENDING" && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <textarea
-                          value={requestNotes[request.id] || ""}
-                          onChange={(e) =>
-                            setRequestNotes((prev) => ({
-                              ...prev,
-                              [request.id]: e.target.value,
-                            }))
-                          }
-                          placeholder="Add notes for the student (optional)..."
-                          className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows={2}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() =>
-                              handleApproveRequest(
-                                request.id,
-                                requestNotes[request.id] || ""
-                              )
-                            }
-                            disabled={reviewingRequestId === request.id}
-                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            {reviewingRequestId === request.id
-                              ? "Responding..."
-                              : "Respond"}
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleRejectRequest(
-                                request.id,
-                                requestNotes[request.id] || ""
-                              )
-                            }
-                            disabled={reviewingRequestId === request.id}
-                            className="px-3 py-1.5 bg-slate-600 text-white text-xs font-medium rounded hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            {reviewingRequestId === request.id
-                              ? "Closing..."
-                              : "Close"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {request.status !== "PENDING" && request.admin_notes && (
-                      <div className="mt-2 pt-2 border-t border-slate-200">
-                        <p className="text-xs text-slate-500 italic">
-                          Staff response: {request.admin_notes}
-                        </p>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {/* 5. Student Requests (NGO mode only) */}
-        {isNGOProgram && (
+        {/* 5. Student Support Requests (Both UNIVERSITY and NGO programs) */}
+        {selectedProgramId && (
           <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-medium text-slate-800">
@@ -1141,15 +987,21 @@ export default function AdminPage() {
                 {loadingRequests && (
                   <span className="text-xs text-slate-500">Loading…</span>
                 )}
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                  NGO Mode
-                </span>
+                {selectedProgram?.program_type && (
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    selectedProgram.program_type === "NGO"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}>
+                    {selectedProgram.program_type === "NGO" ? "NGO Mode" : "University Mode"}
+                  </span>
+                )}
               </div>
             </div>
 
             {requests.length === 0 ? (
               <p className="text-sm text-slate-500">
-                No student requests yet. Students can submit requests using the "Request Support" button in their dashboard.
+                No student requests yet. Students can submit support requests using the "Request Support" buttons in their dashboard.
               </p>
             ) : (
               <ul className="space-y-3">
@@ -1215,8 +1067,8 @@ export default function AdminPage() {
                             className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded hover:bg-emerald-700 disabled:opacity-50"
                           >
                             {reviewingRequestId === request.id
-                              ? "Approving..."
-                              : "Approve"}
+                              ? (isNGOProgram ? "Approving..." : "Responding...")
+                              : (isNGOProgram ? "Approve" : "Respond")}
                           </button>
                           <button
                             onClick={() =>
@@ -1226,11 +1078,13 @@ export default function AdminPage() {
                               )
                             }
                             disabled={reviewingRequestId === request.id}
-                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 disabled:opacity-50"
+                            className={`px-3 py-1.5 text-white text-xs font-medium rounded hover:bg-opacity-90 disabled:opacity-50 ${
+                              isNGOProgram ? "bg-red-600 hover:bg-red-700" : "bg-slate-600 hover:bg-slate-700"
+                            }`}
                           >
                             {reviewingRequestId === request.id
-                              ? "Rejecting..."
-                              : "Reject"}
+                              ? (isNGOProgram ? "Rejecting..." : "Closing...")
+                              : (isNGOProgram ? "Reject" : "Close")}
                           </button>
                         </div>
                       </div>
@@ -1239,7 +1093,7 @@ export default function AdminPage() {
                     {request.status !== "PENDING" && request.admin_notes && (
                       <div className="mt-2 pt-2 border-t border-slate-200">
                         <p className="text-xs text-slate-500 italic">
-                          Admin response: {request.admin_notes}
+                          Staff response: {request.admin_notes}
                         </p>
                       </div>
                     )}

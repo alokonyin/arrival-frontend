@@ -5,15 +5,6 @@ import { useParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-type DocumentInfo = {
-  id: string;
-  file_name: string;
-  public_url: string;
-  review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
-  reviewer_notes?: string | null;
-  uploaded_at?: string;
-};
-
 type ChecklistItem = {
   checklist_step_id: string;
   title: string;
@@ -23,12 +14,6 @@ type ChecklistItem = {
   sort_order: number;
   status: string; // PENDING or DONE
   completed_at?: string | null;
-  requires_document: boolean;
-  has_document: boolean;
-  document_url?: string | null;
-  document?: DocumentInfo | null;
-  review_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
-  reviewer_notes?: string | null;
 };
 
 type StudentRequest = {
@@ -51,8 +36,6 @@ export default function StudentChecklistPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
 
   // Request support state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -126,62 +109,6 @@ export default function StudentChecklistPage() {
       setError(err.message || "Failed to update step");
     } finally {
       setSavingId(null);
-    }
-  };
-
-  const handleFileChange = (checklistStepId: string, file: File | null) => {
-    if (file) {
-      setSelectedFiles((prev) => ({ ...prev, [checklistStepId]: file }));
-    } else {
-      setSelectedFiles((prev) => {
-        const updated = { ...prev };
-        delete updated[checklistStepId];
-        return updated;
-      });
-    }
-  };
-
-  const handleUpload = async (checklistStepId: string) => {
-    if (!API_BASE_URL || !studentId) return;
-
-    const file = selectedFiles[checklistStepId];
-    if (!file) {
-      setError("Please select a file to upload");
-      return;
-    }
-
-    try {
-      setUploadingId(checklistStepId);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append("student_id", studentId);
-      formData.append("checklist_step_id", checklistStepId);
-      formData.append("file", file);
-
-      const res = await fetch(`${API_BASE_URL}/api/student-documents/upload`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to upload document (${res.status})`);
-      }
-
-      // Clear selected file for this step
-      handleFileChange(checklistStepId, null);
-
-      // Re-fetch checklist to get updated document status
-      const refreshed = await fetch(
-        `${API_BASE_URL}/api/student-checklist?student_id=${studentId}`
-      );
-      const data = await refreshed.json();
-      setItems(data);
-    } catch (err: any) {
-      console.error("Upload error:", err);
-      setError(err.message || "Failed to upload document");
-    } finally {
-      setUploadingId(null);
     }
   };
 
@@ -309,11 +236,6 @@ export default function StudentChecklistPage() {
           <ul className="space-y-3">
             {items.map((item) => {
               const isDone = item.status === "DONE";
-              // Handle both nested document object and flat fields
-              const hasDoc = item.has_document || !!item.document;
-              const docUrl = item.document?.public_url || item.document_url;
-              const reviewStatus = item.document?.review_status || item.review_status;
-              const reviewerNotes = item.document?.reviewer_notes || item.reviewer_notes;
 
               return (
                 <li
@@ -346,105 +268,6 @@ export default function StudentChecklistPage() {
                         Marked complete.
                       </p>
                     )}
-
-                    {/* Document upload controls */}
-                    {item.requires_document && (
-                      <div className="mt-2 pt-2 border-t border-slate-200">
-                        {hasDoc && docUrl && reviewStatus !== "REJECTED" ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-emerald-600 font-medium">
-                                Document uploaded
-                              </span>
-                              <a
-                                href={docUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[10px] text-blue-600 underline hover:text-blue-800"
-                              >
-                                View
-                              </a>
-                            </div>
-
-                            {/* Review status */}
-                            {reviewStatus === "APPROVED" && (
-                              <p className="text-[10px] text-emerald-600 font-medium">
-                                ✅ Approved by staff
-                              </p>
-                            )}
-
-                            {reviewStatus === "PENDING" && (
-                              <p className="text-[10px] text-amber-600">
-                                ⏳ Pending review by your program
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {/* Show rejection message if document was rejected */}
-                            {reviewStatus === "REJECTED" && (
-                              <div className="mb-2 space-y-0.5">
-                                <p className="text-[10px] text-red-600 font-medium">
-                                  ❌ Document rejected - Please upload a new version
-                                </p>
-                                {reviewerNotes && (
-                                  <p className="text-[10px] text-red-600 italic">
-                                    Reason: {reviewerNotes}
-                                  </p>
-                                )}
-                                {hasDoc && docUrl && (
-                                  <a
-                                    href={docUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[10px] text-blue-600 underline hover:text-blue-800"
-                                  >
-                                    View rejected document
-                                  </a>
-                                )}
-                              </div>
-                            )}
-
-                            <label className="block text-[10px] text-slate-600 font-medium">
-                              {reviewStatus === "REJECTED" ? "Upload new version:" : "Upload required document:"}
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="file"
-                                onChange={(e) =>
-                                  handleFileChange(
-                                    item.checklist_step_id,
-                                    e.target.files?.[0] || null
-                                  )
-                                }
-                                className="text-[10px] text-slate-600 file:mr-2 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-[10px] file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-                              />
-                              <button
-                                onClick={() =>
-                                  handleUpload(item.checklist_step_id)
-                                }
-                                disabled={
-                                  !selectedFiles[item.checklist_step_id] ||
-                                  uploadingId === item.checklist_step_id
-                                }
-                                className="rounded bg-blue-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
-                              >
-                                {uploadingId === item.checklist_step_id
-                                  ? "Uploading..."
-                                  : reviewStatus === "REJECTED"
-                                  ? "Upload New"
-                                  : "Upload"}
-                              </button>
-                            </div>
-                            {!isDone && reviewStatus !== "REJECTED" && (
-                              <p className="text-[10px] text-amber-600 mt-1">
-                                ⚠️ You must upload a document before marking this step complete.
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center">
                     {isDone ? (
@@ -454,20 +277,8 @@ export default function StudentChecklistPage() {
                     ) : (
                       <button
                         onClick={() => handleMarkDone(item.checklist_step_id)}
-                        disabled={
-                          savingId === item.checklist_step_id ||
-                          (item.requires_document && reviewStatus !== "APPROVED")
-                        }
+                        disabled={savingId === item.checklist_step_id}
                         className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-                        title={
-                          item.requires_document && reviewStatus !== "APPROVED"
-                            ? reviewStatus === "REJECTED"
-                              ? "Document was rejected. Please upload a new version."
-                              : reviewStatus === "PENDING"
-                              ? "Waiting for document approval"
-                              : "Please upload the required document first"
-                            : ""
-                        }
                       >
                         {savingId === item.checklist_step_id
                           ? "Saving..."
