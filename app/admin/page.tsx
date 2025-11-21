@@ -94,6 +94,14 @@ export default function AdminPage() {
   const [newStepDescription, setNewStepDescription] = useState("");
   const [creatingStep, setCreatingStep] = useState(false);
 
+  // form state for creating a new program
+  const [showProgramForm, setShowProgramForm] = useState(false);
+  const [newProgramName, setNewProgramName] = useState("");
+  const [newProgramTermLabel, setNewProgramTermLabel] = useState("");
+  const [newProgramStartDate, setNewProgramStartDate] = useState("");
+  const [newProgramType, setNewProgramType] = useState<"UNIVERSITY" | "NGO">("UNIVERSITY");
+  const [creatingProgram, setCreatingProgram] = useState(false);
+
   const apiBase = API_BASE_URL;
 
   // Get selected program object
@@ -430,6 +438,57 @@ export default function AdminPage() {
     }
   };
 
+  // Create a new program
+  const handleCreateProgram = async () => {
+    if (!apiBase || !selectedInstitutionId || !newProgramName.trim() || !newProgramTermLabel.trim() || !newProgramStartDate) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    setCreatingProgram(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${apiBase}/api/programs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          institution_id: selectedInstitutionId,
+          name: newProgramName.trim(),
+          term_label: newProgramTermLabel.trim(),
+          term_start_date: newProgramStartDate,
+          program_type: newProgramType,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Failed to create program (${res.status})`);
+      }
+
+      // Reset form
+      setNewProgramName("");
+      setNewProgramTermLabel("");
+      setNewProgramStartDate("");
+      setNewProgramType("UNIVERSITY");
+      setShowProgramForm(false);
+
+      // Refresh programs list
+      if (selectedInstitutionId) {
+        const refreshed = await fetch(
+          `${apiBase}/api/programs?institution_id=${selectedInstitutionId}`
+        );
+        const data = await refreshed.json();
+        setPrograms(data);
+      }
+    } catch (err: any) {
+      console.error("Create program error:", err);
+      setError(err.message || "Failed to create program");
+    } finally {
+      setCreatingProgram(false);
+    }
+  };
+
   // Create a new checklist step
   const handleCreateStep = async () => {
     if (!apiBase || !selectedProgramId || !newStepTitle.trim()) return;
@@ -553,13 +612,110 @@ export default function AdminPage() {
             <h2 className="text-lg font-medium text-slate-800">
               2. Programs / Cohorts
             </h2>
-            {loadingPrograms && (
-              <span className="text-xs text-slate-500">Loading…</span>
-            )}
+            <div className="flex items-center gap-2">
+              {loadingPrograms && (
+                <span className="text-xs text-slate-500">Loading…</span>
+              )}
+              {selectedInstitutionId && !showProgramForm && (
+                <button
+                  onClick={() => setShowProgramForm(true)}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  + Create Program
+                </button>
+              )}
+            </div>
           </div>
+
+          {showProgramForm && (
+            <div className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+              <h3 className="text-sm font-semibold text-slate-900 mb-3">
+                Create New Program
+              </h3>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Program Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProgramName}
+                    onChange={(e) => setNewProgramName(e.target.value)}
+                    placeholder="e.g., Undergrad Fall 2026"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Term Label *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProgramTermLabel}
+                    onChange={(e) => setNewProgramTermLabel(e.target.value)}
+                    placeholder="e.g., Fall 2026"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={newProgramStartDate}
+                    onChange={(e) => setNewProgramStartDate(e.target.value)}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Program Type *
+                  </label>
+                  <select
+                    value={newProgramType}
+                    onChange={(e) => setNewProgramType(e.target.value as "UNIVERSITY" | "NGO")}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="UNIVERSITY">🎓 University / College</option>
+                    <option value="NGO">🤝 Community Program / NGO</option>
+                  </select>
+                </div>
+              </div>
+              <div className="text-xs text-slate-600 mb-3 p-2 bg-white rounded border border-slate-200">
+                <strong>Program Type:</strong>
+                <ul className="mt-1 space-y-1 ml-4 list-disc">
+                  <li><strong>University:</strong> Document review, immigration tracking, visa compliance</li>
+                  <li><strong>NGO:</strong> Funding requests, self-report tracking, financial support</li>
+                </ul>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowProgramForm(false);
+                    setNewProgramName("");
+                    setNewProgramTermLabel("");
+                    setNewProgramStartDate("");
+                    setNewProgramType("UNIVERSITY");
+                  }}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateProgram}
+                  disabled={creatingProgram || !newProgramName.trim() || !newProgramTermLabel.trim() || !newProgramStartDate}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {creatingProgram ? "Creating..." : "Create Program"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {programs.length === 0 ? (
             <p className="text-sm text-slate-500">
-              No programs found for this institution yet.
+              No programs found for this institution yet. Click "Create Program" to add one.
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
