@@ -31,6 +31,17 @@ type ChecklistItem = {
   reviewer_notes?: string | null;
 };
 
+type StudentRequest = {
+  id: string;
+  student_id: string;
+  request_type: string;
+  description: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  admin_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export default function StudentChecklistPage() {
   const params = useParams();
   const studentId = params?.studentId as string | undefined;
@@ -42,6 +53,13 @@ export default function StudentChecklistPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>({});
+
+  // Request support state
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requests, setRequests] = useState<StudentRequest[]>([]);
+  const [requestType, setRequestType] = useState("");
+  const [requestDescription, setRequestDescription] = useState("");
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   useEffect(() => {
     const fetchChecklist = async () => {
@@ -166,6 +184,68 @@ export default function StudentChecklistPage() {
     }
   };
 
+  // Fetch student requests
+  const fetchRequests = async () => {
+    if (!API_BASE_URL || !studentId) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/student/${studentId}/requests`
+      );
+      if (!res.ok) throw new Error("Failed to load requests");
+      const data = await res.json();
+      setRequests(data);
+    } catch (err: any) {
+      console.error("Failed to load requests:", err);
+    }
+  };
+
+  // Submit a new request
+  const handleSubmitRequest = async () => {
+    if (!API_BASE_URL || !studentId || !requestType || !requestDescription.trim()) {
+      setError("Please select a request type and provide a description");
+      return;
+    }
+
+    setSubmittingRequest(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/student/${studentId}/request`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request_type: requestType,
+            description: requestDescription,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || "Failed to submit request");
+      }
+
+      // Success - refresh requests and close modal
+      await fetchRequests();
+      setShowRequestModal(false);
+      setRequestType("");
+      setRequestDescription("");
+    } catch (err: any) {
+      console.error("Submit request error:", err);
+      setError(err.message || "Failed to submit request");
+    } finally {
+      setSubmittingRequest(false);
+    }
+  };
+
+  // Load requests on mount
+  useEffect(() => {
+    fetchRequests();
+  }, [studentId]);
+
   if (!studentId) {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -179,12 +259,22 @@ export default function StudentChecklistPage() {
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <h1 className="text-2xl font-semibold text-slate-900 mb-1">
-          Your Arrival Checklist
-        </h1>
-        <p className="text-sm text-slate-500 mb-4">
-          Complete each step below to get ready for your arrival on campus.
-        </p>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+              Your Arrival Checklist
+            </h1>
+            <p className="text-sm text-slate-500">
+              Complete each step below to get ready for your arrival on campus.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowRequestModal(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Request Support
+          </button>
+        </div>
 
         {error && (
           <div className="mb-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
@@ -373,7 +463,126 @@ export default function StudentChecklistPage() {
             })}
           </ul>
         )}
+
+        {/* Student Requests Section */}
+        {requests.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900 mb-3">
+              Your Support Requests
+            </h2>
+            <ul className="space-y-3">
+              {requests.map((request) => (
+                <li
+                  key={request.id}
+                  className="border rounded-lg p-3 text-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-slate-900">
+                          {request.request_type}
+                        </span>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            request.status === "APPROVED"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : request.status === "REJECTED"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {request.status}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-xs mb-1">
+                        {request.description}
+                      </p>
+                      {request.admin_notes && (
+                        <p className="text-slate-500 text-xs italic">
+                          Admin response: {request.admin_notes}
+                        </p>
+                      )}
+                      <p className="text-slate-400 text-[10px] mt-1">
+                        Submitted {new Date(request.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
+
+      {/* Request Support Modal */}
+      {showRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Request Support
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  What do you need help with?
+                </label>
+                <select
+                  value={requestType}
+                  onChange={(e) => setRequestType(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select a request type...</option>
+                  <option value="SEVIS Fee Support">SEVIS Fee Support ($350)</option>
+                  <option value="DS-160 Fee Support">DS-160 Fee Support ($160)</option>
+                  <option value="Flight Booking">Flight Booking Assistance</option>
+                  <option value="Laptop Grant">Laptop or Tech Grant</option>
+                  <option value="Emergency Funds">Emergency Funds</option>
+                  <option value="Visa Appointment">Visa Appointment Help</option>
+                  <option value="Housing Question">Housing Question</option>
+                  <option value="I-20 Delay">I-20 Delay Concern</option>
+                  <option value="Visa Delay">Visa Delay Concern</option>
+                  <option value="Other">Other Support</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Please describe your request
+                </label>
+                <textarea
+                  value={requestDescription}
+                  onChange={(e) => setRequestDescription(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Provide details about what you need help with..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRequestModal(false);
+                  setRequestType("");
+                  setRequestDescription("");
+                  setError(null);
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitRequest}
+                disabled={submittingRequest || !requestType || !requestDescription.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {submittingRequest ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
