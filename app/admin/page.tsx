@@ -71,13 +71,14 @@ type StudentRequest = {
 type StudentSupportRequest = {
   id: string;
   student_id: string;
-  student_name: string | null;
-  student_email: string | null;
-  target_university: string | null;
+  student_name?: string | null;
+  student_email?: string | null;
+  target_university?: string | null;
   title: string | null;
   description: string | null;
   status: string | null;
   created_at: string | null;
+  recipient_type?: string | null;
 };
 
 export default function AdminPage() {
@@ -435,8 +436,11 @@ export default function AdminPage() {
 
       const data = await res.json();
       console.log("NGO requests response:", data);
-      console.log("Requests array:", data.requests);
-      setNgoRequests(data.requests || []);
+
+      // Backend returns array directly, not wrapped in {requests: [...]}
+      const requestsArray = Array.isArray(data) ? data : (data.requests || []);
+      console.log("Requests array:", requestsArray);
+      setNgoRequests(requestsArray);
     } catch (err: any) {
       console.error("Error loading NGO requests", err);
       setRequestsError("Failed to load student requests");
