@@ -36,6 +36,7 @@ export default function StudentChecklistPage() {
   const studentId = params?.studentId as string | undefined;
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [programType, setProgramType] = useState<"UNIVERSITY" | "NGO" | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
