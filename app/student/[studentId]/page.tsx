@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import StudentMessages from "@/components/StudentMessages";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -30,6 +31,9 @@ type StudentRequest = {
 export default function StudentChecklistPage() {
   const params = useParams();
   const studentId = params?.studentId as string | undefined;
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'checklist' | 'messages'>('checklist');
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [programType, setProgramType] = useState<"UNIVERSITY" | "NGO" | null>(null);
@@ -206,14 +210,60 @@ export default function StudentChecklistPage() {
     );
   }
 
+  const incompleteCount = items.filter(item => item.status !== "DONE").length;
+  const unreadCount = 0; // TODO: Get from conversation API
+
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center px-4 py-8">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <h1 className="text-2xl font-semibold text-slate-900 mb-1">
-              Your Arrival Checklist
-            </h1>
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Navbar with Tabs */}
+        <nav className="flex border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab('checklist')}
+            className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+              activeTab === 'checklist'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            My Checklist
+            {incompleteCount > 0 && (
+              <span className="ml-2 text-xs text-slate-500">
+                ({incompleteCount} left)
+              </span>
+            )}
+            {activeTab === 'checklist' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+              activeTab === 'messages'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            Messages
+            {unreadCount > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-medium">
+                {unreadCount}
+              </span>
+            )}
+            {activeTab === 'messages' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+            )}
+          </button>
+        </nav>
+
+        {/* Checklist Tab Content */}
+        {activeTab === 'checklist' && (
+          <div className="p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex-1">
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Your Arrival Checklist
+                </h1>
             <p className="text-sm text-slate-500 mb-3">
               Complete each step below to get ready for your arrival on campus.
             </p>
@@ -437,6 +487,21 @@ export default function StudentChecklistPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+          </div>
+        )}
+
+        {/* Messages Tab Content */}
+        {activeTab === 'messages' && (
+          <div className="p-6">
+            <h1 className="text-2xl font-semibold text-slate-900 mb-4">
+              Messages
+            </h1>
+            <p className="text-sm text-slate-500 mb-4">
+              Chat with your program admin for help and support.
+            </p>
+            {studentId && <StudentMessages studentId={studentId} />}
           </div>
         )}
       </div>

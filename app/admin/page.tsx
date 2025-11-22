@@ -81,6 +81,29 @@ type StudentSupportRequest = {
   recipient_type?: string | null;
 };
 
+type AdminConversation = {
+  id: string;
+  student_id: string;
+  student_name?: string | null;
+  student_email?: string | null;
+  target_university?: string | null;
+  last_message: string | null;
+  last_message_at: string;
+  unread_count: number;
+  last_sender_type: "STUDENT" | "ADMIN" | null;
+};
+
+type Message = {
+  id: string;
+  conversation_id: string;
+  sender_type: "STUDENT" | "ADMIN";
+  sender_id: string;
+  sender_name?: string | null;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+};
+
 export default function AdminPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<string>("");
@@ -119,6 +142,17 @@ export default function AdminPage() {
   const [studentsCollapsed, setStudentsCollapsed] = useState(false);
   const [checklistCategoryCollapsed, setChecklistCategoryCollapsed] = useState<Record<string, boolean>>({});
   const [requestsCollapsed, setRequestsCollapsed] = useState(false);
+  const [messagesCollapsed, setMessagesCollapsed] = useState(false);
+
+  // messaging state
+  const [conversations, setConversations] = useState<AdminConversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newAdminMessage, setNewAdminMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [conversationsFilter, setConversationsFilter] = useState<"all" | "unread">("all");
 
   // bulk student upload state (NGO programs)
   const [bulkText, setBulkText] = useState("");
@@ -467,6 +501,22 @@ export default function AdminPage() {
     }
   }, [selectedProgramId, isNGOProgram, isUniversityProgram]);
 
+  // Fetch conversations when program is selected or filter changes
+  useEffect(() => {
+    if (selectedProgramId) {
+      fetchConversations(selectedProgramId);
+    } else {
+      setConversations([]);
+    }
+  }, [selectedProgramId, conversationsFilter]);
+
+  // Fetch messages when a conversation is selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      fetchConversationMessages(selectedConversationId);
+    }
+  }, [selectedConversationId]);
+
   // Handle request approval
   const handleApproveRequest = async (requestId: string, notes: string) => {
     if (!apiBase) return;
@@ -583,6 +633,98 @@ export default function AdminPage() {
       setError(err.message || "Failed to resolve request");
     } finally {
       setReviewingRequestId(null);
+    }
+  };
+
+  // Fetch conversations for admin inbox
+  const fetchConversations = async (programId: string) => {
+    if (!apiBase) return;
+
+    setLoadingConversations(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/admin/programs/${programId}/conversations?filter=${conversationsFilter}`
+      );
+      if (!res.ok) {
+        throw new Error(`Failed to load conversations (${res.status})`);
+      }
+      const data = await res.json();
+      setConversations(data.conversations || []);
+    } catch (err: any) {
+      console.error("Conversations error:", err);
+      setError(err.message || "Failed to load conversations");
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  // Fetch messages for a conversation
+  const fetchConversationMessages = async (conversationId: string) => {
+    if (!apiBase) return;
+
+    setLoadingMessages(true);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/conversations/${conversationId}/messages?limit=50&offset=0`
+      );
+      if (!res.ok) {
+        throw new Error(`Failed to load messages (${res.status})`);
+      }
+      const data = await res.json();
+      setConversationMessages(data.messages || []);
+
+      // Mark messages as read
+      await fetch(
+        `${apiBase}/api/conversations/${conversationId}/mark-read?reader_type=ADMIN`,
+        { method: "POST" }
+      );
+
+      // Refresh conversations to update unread count
+      if (selectedProgramId) {
+        await fetchConversations(selectedProgramId);
+      }
+    } catch (err: any) {
+      console.error("Messages error:", err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  // Send admin message
+  const handleSendAdminMessage = async () => {
+    if (!apiBase || !selectedConversationId || !newAdminMessage.trim()) return;
+
+    setSendingMessage(true);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/conversations/${selectedConversationId}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sender_type: "ADMIN",
+            sender_id: "admin-user-id", // TODO: Replace with actual admin user ID
+            content: newAdminMessage.trim(),
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to send message (${res.status})`);
+      }
+
+      // Clear input and refresh messages
+      setNewAdminMessage("");
+      await fetchConversationMessages(selectedConversationId);
+    } catch (err: any) {
+      console.error("Send message error:", err);
+      setError(err.message || "Failed to send message");
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -1172,7 +1314,7 @@ export default function AdminPage() {
                       <td className="px-3 py-2">
                         {(() => {
                           const p = s.progress_fraction ?? 0;
-                          const pct = Math.round(p * 100);
+                          const pct = Math.min(Math.round(p * 100), 100);
                           return (
                             <div className="w-32">
                               <div className="h-1.5 w-full bg-slate-200 rounded-full mb-1">
@@ -1732,6 +1874,215 @@ export default function AdminPage() {
               </>
             )}
           </section>
+        )}
+
+        {/* 6. Message Inbox */}
+        {selectedProgramId && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setMessagesCollapsed(!messagesCollapsed)}
+                  className="p-1 hover:bg-slate-100 rounded transition-colors"
+                  aria-label={messagesCollapsed ? "Expand inbox" : "Collapse inbox"}
+                >
+                  {messagesCollapsed ? (
+                    <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+                <h2 className="text-lg font-medium text-slate-800">
+                  6. Message Inbox
+                </h2>
+                <span className="text-xs text-slate-500">
+                  ({conversations.length})
+                </span>
+                {conversations.filter(c => c.unread_count > 0).length > 0 && (
+                  <span className="px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-medium">
+                    {conversations.filter(c => c.unread_count > 0).length} unread
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConversationsFilter("all")}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    conversationsFilter === "all"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setConversationsFilter("unread")}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    conversationsFilter === "unread"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  Unread
+                </button>
+              </div>
+            </div>
+
+            {!messagesCollapsed && (
+              <>
+                {loadingConversations ? (
+                  <p className="text-sm text-slate-500">Loading conversations...</p>
+                ) : conversations.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No student conversations yet. Students can message you from their dashboard.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {conversations.map((conv) => (
+                      <div
+                        key={conv.id}
+                        onClick={() => setSelectedConversationId(conv.id)}
+                        className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                          selectedConversationId === conv.id
+                            ? "border-blue-500 bg-blue-50"
+                            : conv.unread_count > 0
+                            ? "border-amber-300 bg-amber-50 hover:bg-amber-100"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`font-medium text-sm ${conv.unread_count > 0 ? "text-slate-900" : "text-slate-700"}`}>
+                                {conv.student_name || "Unknown Student"}
+                              </span>
+                              {conv.unread_count > 0 && (
+                                <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] rounded-full font-medium">
+                                  {conv.unread_count} new
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 mb-1">
+                              {conv.student_email} • {conv.target_university}
+                            </p>
+                            <p className="text-xs text-slate-700 line-clamp-2">
+                              {conv.last_sender_type === "STUDENT" ? "Student: " : "You: "}
+                              {conv.last_message || "No messages yet"}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              {new Date(conv.last_message_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* Conversation Modal */}
+        {selectedConversationId && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {conversations.find(c => c.id === selectedConversationId)?.student_name || "Student"}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {conversations.find(c => c.id === selectedConversationId)?.student_email}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedConversationId(null);
+                    setConversationMessages([]);
+                  }}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {loadingMessages ? (
+                  <p className="text-sm text-slate-500 text-center">Loading messages...</p>
+                ) : conversationMessages.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center">No messages yet</p>
+                ) : (
+                  conversationMessages.map((msg) => {
+                    const isAdmin = msg.sender_type === "ADMIN";
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[75%] rounded-lg px-4 py-2 ${
+                            isAdmin
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-900"
+                          }`}
+                        >
+                          {!isAdmin && msg.sender_name && (
+                            <p className="text-xs font-medium text-slate-600 mb-1">
+                              {msg.sender_name}
+                            </p>
+                          )}
+                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                          <p
+                            className={`text-[10px] mt-1 ${
+                              isAdmin ? "text-blue-200" : "text-slate-500"
+                            }`}
+                          >
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Message Input */}
+              <div className="border-t border-slate-200 p-4">
+                <div className="flex gap-2">
+                  <textarea
+                    value={newAdminMessage}
+                    onChange={(e) => setNewAdminMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendAdminMessage();
+                      }
+                    }}
+                    placeholder="Type your reply... (Press Enter to send)"
+                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    rows={3}
+                    disabled={sendingMessage}
+                  />
+                  <button
+                    onClick={handleSendAdminMessage}
+                    disabled={sendingMessage || !newAdminMessage.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-end"
+                  >
+                    {sendingMessage ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
