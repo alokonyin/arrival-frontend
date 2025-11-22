@@ -181,6 +181,9 @@ export default function AdminPage() {
   const [newProgramType, setNewProgramType] = useState<"UNIVERSITY" | "NGO">("UNIVERSITY");
   const [creatingProgram, setCreatingProgram] = useState(false);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'setup' | 'students' | 'checklist' | 'requests' | 'messages'>('setup');
+
   const apiBase = API_BASE_URL;
 
   // Get selected program object
@@ -1060,51 +1063,94 @@ export default function AdminPage() {
         </p>
       </header>
 
-      {/* Quick Navigation Menu */}
-      <nav className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-3">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs font-medium text-slate-600 mr-2">Quick Jump:</span>
+      {/* Tab Navigation */}
+      <nav className="sticky top-0 z-40 bg-white border-b border-slate-200">
+        <div className="flex">
           <button
-            onClick={() => document.getElementById('section-1')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+            onClick={() => setActiveTab('setup')}
+            className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+              activeTab === 'setup'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
           >
-            1. Institutions
-          </button>
-          <button
-            onClick={() => document.getElementById('section-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
-          >
-            2. Programs
+            Setup
+            {activeTab === 'setup' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+            )}
           </button>
           {selectedProgramId && (
             <>
               <button
-                onClick={() => document.getElementById('section-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+                onClick={() => setActiveTab('students')}
+                className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'students'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                3. Students ({students.length})
+                Students
+                {students.length > 0 && (
+                  <span className="ml-2 text-xs text-slate-500">
+                    ({students.length})
+                  </span>
+                )}
+                {activeTab === 'students' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
               </button>
               <button
-                onClick={() => document.getElementById('section-4')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+                onClick={() => setActiveTab('checklist')}
+                className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'checklist'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                4. Checklist ({checklist.length})
+                Checklist
+                {checklist.length > 0 && (
+                  <span className="ml-2 text-xs text-slate-500">
+                    ({checklist.length})
+                  </span>
+                )}
+                {activeTab === 'checklist' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
               </button>
               <button
-                onClick={() => document.getElementById('section-5')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+                onClick={() => setActiveTab('requests')}
+                className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'requests'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                5. Support Requests
+                Support Requests
+                {activeTab === 'requests' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
               </button>
               <button
-                onClick={() => document.getElementById('section-6')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors whitespace-nowrap"
+                onClick={() => setActiveTab('messages')}
+                className={`flex-1 px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'messages'
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
               >
-                6. Messages ({conversations.length})
+                Messages
+                {conversations.length > 0 && (
+                  <span className="ml-2 text-xs text-slate-500">
+                    ({conversations.length})
+                  </span>
+                )}
                 {conversations.filter(c => c.unread_count > 0).length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded-full">
+                  <span className="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full font-medium">
                     {conversations.filter(c => c.unread_count > 0).length}
                   </span>
+                )}
+                {activeTab === 'messages' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                 )}
               </button>
             </>
@@ -1119,8 +1165,11 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* 1. Institution selector */}
-        <section id="section-1" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+        {/* Setup Tab: Institutions and Programs */}
+        {activeTab === 'setup' && (
+          <>
+            {/* 1. Institution selector */}
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <h2 className="text-lg font-medium text-slate-800 mb-2">
             1. Select Institution
           </h2>
@@ -1145,8 +1194,8 @@ export default function AdminPage() {
           )}
         </section>
 
-        {/* 2. Programs list */}
-        <section id="section-2" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+            {/* 2. Programs list */}
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-slate-800">
               2. Programs / Cohorts
@@ -1282,10 +1331,15 @@ export default function AdminPage() {
               ))}
             </div>
           )}
-        </section>
+            </section>
+          </>
+        )}
 
-        {/* 3. Students list */}
-        <section id="section-3" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+        {/* Students Tab */}
+        {activeTab === 'students' && selectedProgramId && (
+          <>
+            {/* 3. Students list */}
+            <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <button
@@ -1397,11 +1451,11 @@ export default function AdminPage() {
               </table>
             </div>
           ))}
-        </section>
+            </section>
 
-        {/* Bulk Add Students (NGO programs only) */}
-        {isNGOProgram && selectedProgramId && (
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            {/* Bulk Add Students (NGO programs only) */}
+            {isNGOProgram && (
+              <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <h3 className="text-md font-semibold text-slate-800 mb-2">
               Bulk Add Students
             </h3>
@@ -1430,11 +1484,14 @@ export default function AdminPage() {
             >
               {bulkLoading ? "Adding students..." : "Add Students"}
             </button>
-          </section>
+              </section>
+            )}
+          </>
         )}
 
-        {/* 4. Checklist for this program */}
-        <section id="section-4" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+        {/* Checklist Tab */}
+        {activeTab === 'checklist' && selectedProgramId && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-slate-800">
               4. Arrival Checklist for this Program
@@ -1660,11 +1717,12 @@ export default function AdminPage() {
               </button>
             </div>
           )}
-        </section>
+          </section>
+        )}
 
-        {/* 5. Student Support Requests (Both UNIVERSITY and NGO programs) */}
-        {selectedProgramId && (
-          <section id="section-5" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+        {/* Support Requests Tab */}
+        {activeTab === 'requests' && selectedProgramId && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <button
@@ -1933,9 +1991,9 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* 6. Message Inbox */}
-        {selectedProgramId && (
-          <section id="section-6" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
+        {/* Messages Tab */}
+        {activeTab === 'messages' && selectedProgramId && (
+          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <button
