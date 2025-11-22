@@ -698,8 +698,12 @@ export default function AdminPage() {
     if (!apiBase || !selectedConversationId || !newAdminMessage.trim()) return;
 
     setSendingMessage(true);
+    setError(null);
 
     try {
+      // Use a consistent admin ID (in production, this should come from auth)
+      const adminId = "00000000-0000-0000-0000-000000000001";
+
       const res = await fetch(
         `${apiBase}/api/conversations/${selectedConversationId}/messages`,
         {
@@ -707,14 +711,15 @@ export default function AdminPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sender_type: "ADMIN",
-            sender_id: "admin-user-id", // TODO: Replace with actual admin user ID
+            sender_id: adminId,
             content: newAdminMessage.trim(),
           }),
         }
       );
 
       if (!res.ok) {
-        throw new Error(`Failed to send message (${res.status})`);
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Failed to send message (${res.status})`);
       }
 
       // Clear input and refresh messages
@@ -2057,6 +2062,11 @@ export default function AdminPage() {
 
               {/* Message Input */}
               <div className="border-t border-slate-200 p-4">
+                {error && (
+                  <div className="mb-3 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                    {error}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <textarea
                     value={newAdminMessage}
