@@ -1060,6 +1060,58 @@ export default function AdminPage() {
         </p>
       </header>
 
+      {/* Quick Navigation Menu */}
+      <nav className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-3">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="text-xs font-medium text-slate-600 mr-2">Quick Jump:</span>
+          <button
+            onClick={() => document.getElementById('section-1')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+          >
+            1. Institutions
+          </button>
+          <button
+            onClick={() => document.getElementById('section-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+          >
+            2. Programs
+          </button>
+          {selectedProgramId && (
+            <>
+              <button
+                onClick={() => document.getElementById('section-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                3. Students ({students.length})
+              </button>
+              <button
+                onClick={() => document.getElementById('section-4')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                4. Checklist ({checklist.length})
+              </button>
+              <button
+                onClick={() => document.getElementById('section-5')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                5. Support Requests
+              </button>
+              <button
+                onClick={() => document.getElementById('section-6')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors whitespace-nowrap"
+              >
+                6. Messages ({conversations.length})
+                {conversations.filter(c => c.unread_count > 0).length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded-full">
+                    {conversations.filter(c => c.unread_count > 0).length}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
+
       <main className="flex-1 px-6 py-4 flex flex-col gap-4">
         {error && (
           <div className="rounded-md bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
@@ -1068,7 +1120,7 @@ export default function AdminPage() {
         )}
 
         {/* 1. Institution selector */}
-        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <section id="section-1" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
           <h2 className="text-lg font-medium text-slate-800 mb-2">
             1. Select Institution
           </h2>
@@ -1094,7 +1146,7 @@ export default function AdminPage() {
         </section>
 
         {/* 2. Programs list */}
-        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <section id="section-2" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-slate-800">
               2. Programs / Cohorts
@@ -1233,7 +1285,7 @@ export default function AdminPage() {
         </section>
 
         {/* 3. Students list */}
-        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <section id="section-3" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <button
@@ -1382,7 +1434,7 @@ export default function AdminPage() {
         )}
 
         {/* 4. Checklist for this program */}
-        <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <section id="section-4" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-medium text-slate-800">
               4. Arrival Checklist for this Program
@@ -1612,7 +1664,7 @@ export default function AdminPage() {
 
         {/* 5. Student Support Requests (Both UNIVERSITY and NGO programs) */}
         {selectedProgramId && (
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <section id="section-5" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <button
@@ -1883,7 +1935,7 @@ export default function AdminPage() {
 
         {/* 6. Message Inbox */}
         {selectedProgramId && (
-          <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <section id="section-6" className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm scroll-mt-20">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <button
