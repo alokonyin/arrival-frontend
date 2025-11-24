@@ -17,17 +17,6 @@ type ChecklistItem = {
   completed_at?: string | null;
 };
 
-type StudentRequest = {
-  id: string;
-  student_id: string;
-  request_type: string;
-  description: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  admin_notes?: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
 export default function StudentChecklistPage() {
   const params = useParams();
   const studentId = params?.studentId as string | undefined;
@@ -60,14 +49,6 @@ export default function StudentChecklistPage() {
       [category]: !prev[category]
     }));
   };
-
-  // Request support state
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestRecipientType, setRequestRecipientType] = useState<"UNIVERSITY" | "NGO" | null>(null);
-  const [requests, setRequests] = useState<StudentRequest[]>([]);
-  const [requestType, setRequestType] = useState("");
-  const [requestDescription, setRequestDescription] = useState("");
-  const [submittingRequest, setSubmittingRequest] = useState(false);
 
   useEffect(() => {
     const fetchChecklist = async () => {
@@ -136,69 +117,6 @@ export default function StudentChecklistPage() {
     }
   };
 
-  // Fetch student requests
-  const fetchRequests = async () => {
-    if (!API_BASE_URL || !studentId) return;
-
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/student/${studentId}/requests`
-      );
-      if (!res.ok) throw new Error("Failed to load requests");
-      const data = await res.json();
-      setRequests(data);
-    } catch (err: any) {
-      console.error("Failed to load requests:", err);
-    }
-  };
-
-  // Submit a new request
-  const handleSubmitRequest = async () => {
-    if (!API_BASE_URL || !studentId || !requestType || !requestDescription.trim() || !requestRecipientType) {
-      setError("Please select a request type and provide a description");
-      return;
-    }
-
-    setSubmittingRequest(true);
-    setError(null);
-
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/student/${studentId}/request`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            request_type: requestType,
-            description: requestDescription,
-            recipient_type: requestRecipientType,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.detail || "Failed to submit request");
-      }
-
-      // Success - refresh requests and close modal
-      await fetchRequests();
-      setShowRequestModal(false);
-      setRequestRecipientType(null);
-      setRequestType("");
-      setRequestDescription("");
-    } catch (err: any) {
-      console.error("Submit request error:", err);
-      setError(err.message || "Failed to submit request");
-    } finally {
-      setSubmittingRequest(false);
-    }
-  };
-
-  // Load requests on mount
-  useEffect(() => {
-    fetchRequests();
-  }, [studentId]);
 
   if (!studentId) {
     return (
@@ -303,31 +221,14 @@ export default function StudentChecklistPage() {
                           ? "Great progress! Keep it up."
                           : "Let's get started on your checklist."}
                       </p>
+                      <p className="text-xs text-blue-600 mt-2">
+                        Need help? Use the <strong>Messages</strong> tab to chat with your admin.
+                      </p>
                     </div>
                   );
                 })()}
               </div>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setRequestRecipientType("UNIVERSITY");
-                setShowRequestModal(true);
-              }}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Request University Support
-            </button>
-            <button
-              onClick={() => {
-                setRequestRecipientType("NGO");
-                setShowRequestModal(true);
-              }}
-              className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              Request Financial Support
-            </button>
           </div>
         </div>
 
@@ -441,54 +342,6 @@ export default function StudentChecklistPage() {
           </div>
         )}
 
-        {/* Student Requests Section */}
-        {requests.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">
-              Your Support Requests
-            </h2>
-            <ul className="space-y-3">
-              {requests.map((request) => (
-                <li
-                  key={request.id}
-                  className="border rounded-lg p-3 text-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-slate-900">
-                          {request.request_type}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                            request.status === "APPROVED"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : request.status === "REJECTED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {request.status}
-                        </span>
-                      </div>
-                      <p className="text-slate-600 text-xs mb-1">
-                        {request.description}
-                      </p>
-                      {request.admin_notes && (
-                        <p className="text-slate-500 text-xs italic">
-                          Admin response: {request.admin_notes}
-                        </p>
-                      )}
-                      <p className="text-slate-400 text-[10px] mt-1">
-                        Submitted {new Date(request.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
           </div>
         )}
 
@@ -505,90 +358,6 @@ export default function StudentChecklistPage() {
           </div>
         )}
       </div>
-
-      {/* Request Support Modal */}
-      {showRequestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-semibold text-slate-900 mb-4">
-              {requestRecipientType === "UNIVERSITY"
-                ? "Request University Support"
-                : "Request Financial Support"}
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  What do you need help with?
-                </label>
-                <select
-                  value={requestType}
-                  onChange={(e) => setRequestType(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a request type...</option>
-                  {requestRecipientType === "NGO" ? (
-                    <>
-                      <option value="SEVIS Fee Support">SEVIS Fee Support ($350)</option>
-                      <option value="DS-160 Fee Support">DS-160 Fee Support ($160)</option>
-                      <option value="Flight Booking">Flight Booking Assistance</option>
-                      <option value="Laptop Grant">Laptop or Tech Grant</option>
-                      <option value="Emergency Funds">Emergency Funds</option>
-                      <option value="Winter Clothing">Winter Clothing Support</option>
-                      <option value="Other Financial">Other Financial Support</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="I-20 Delay">I-20 Delay Concern</option>
-                      <option value="Housing Question">Housing Question</option>
-                      <option value="Visa Appointment">Visa Appointment Help</option>
-                      <option value="Visa Delay">Visa Delay Concern</option>
-                      <option value="Health/Immunization">Health/Immunization Question</option>
-                      <option value="Orientation">Orientation Question</option>
-                      <option value="Campus Logistics">Campus Logistics</option>
-                      <option value="Other University">Other University Support</option>
-                    </>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Please describe your request
-                </label>
-                <textarea
-                  value={requestDescription}
-                  onChange={(e) => setRequestDescription(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Provide details about what you need help with..."
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowRequestModal(false);
-                  setRequestType("");
-                  setRequestDescription("");
-                  setError(null);
-                }}
-                className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmitRequest}
-                disabled={submittingRequest || !requestType || !requestDescription.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {submittingRequest ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
