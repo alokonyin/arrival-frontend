@@ -181,6 +181,9 @@ export default function AdminPage() {
   const [newProgramType, setNewProgramType] = useState<"UNIVERSITY" | "NGO">("UNIVERSITY");
   const [creatingProgram, setCreatingProgram] = useState(false);
 
+  // Analytics state
+  const [analyticsCollapsed, setAnalyticsCollapsed] = useState(false);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<'setup' | 'students' | 'checklist' | 'requests' | 'messages'>('setup');
 
@@ -1332,6 +1335,122 @@ export default function AdminPage() {
             </div>
           )}
             </section>
+
+            {/* Analytics Widget */}
+            {selectedProgramId && (
+              <section className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setAnalyticsCollapsed(!analyticsCollapsed)}
+                      className="text-slate-600 hover:text-slate-800 transition-colors"
+                      aria-label={analyticsCollapsed ? "Expand analytics" : "Collapse analytics"}
+                    >
+                      {analyticsCollapsed ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      )}
+                    </button>
+                    <h2 className="text-lg font-medium text-slate-800">
+                      Program Analytics
+                    </h2>
+                  </div>
+                </div>
+
+                {!analyticsCollapsed && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Total Students */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-blue-700 uppercase tracking-wide">
+                          Total Students
+                        </span>
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-3xl font-bold text-blue-900">
+                        {students.length}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        enrolled in this program
+                      </p>
+                    </div>
+
+                    {/* Average Completion */}
+                    <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-emerald-700 uppercase tracking-wide">
+                          Avg Completion
+                        </span>
+                        <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-3xl font-bold text-emerald-900">
+                        {(() => {
+                          if (students.length === 0) return "0%";
+                          const avgProgress = students.reduce((sum, s) => sum + (s.progress_fraction ?? 0), 0) / students.length;
+                          return `${Math.round(avgProgress * 100)}%`;
+                        })()}
+                      </div>
+                      <p className="text-xs text-emerald-600 mt-1">
+                        checklist progress
+                      </p>
+                    </div>
+
+                    {/* At-Risk Students */}
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-amber-700 uppercase tracking-wide">
+                          At-Risk Students
+                        </span>
+                        <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div className="text-3xl font-bold text-amber-900">
+                        {students.filter(s => s.risk_level === "RED" || s.risk_level === "YELLOW").length}
+                      </div>
+                      <p className="text-xs text-amber-600 mt-1">
+                        need attention
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {!analyticsCollapsed && students.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-800 mb-3">Quick Insights</h3>
+                    <div className="space-y-2 text-xs text-slate-600">
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">•</span>
+                        <span>
+                          <strong>{students.filter(s => (s.progress_fraction ?? 0) >= 1).length}</strong> students have completed all checklist items
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-amber-600 mt-0.5">•</span>
+                        <span>
+                          <strong>{students.filter(s => (s.progress_fraction ?? 0) < 0.5).length}</strong> students are below 50% completion
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-emerald-600 mt-0.5">•</span>
+                        <span>
+                          <strong>{students.filter(s => s.risk_level === "GREEN").length}</strong> students are on track (green status)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </>
         )}
 
