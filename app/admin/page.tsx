@@ -30,6 +30,7 @@ type Student = {
   risk_level: string;
   target_university?: string;
   progress_fraction?: number; // 0-1 from backend
+  arrival_date?: string | null; // ISO date string
 };
 
 type ChecklistStep = {
@@ -183,6 +184,11 @@ export default function AdminPage() {
 
   // Analytics state
   const [analyticsCollapsed, setAnalyticsCollapsed] = useState(false);
+
+  // Arrival date editing state
+  const [editingArrivalDateId, setEditingArrivalDateId] = useState<string | null>(null);
+  const [editArrivalDate, setEditArrivalDate] = useState<string>("");
+  const [savingArrivalDate, setSavingArrivalDate] = useState(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'setup' | 'students' | 'checklist' | 'requests' | 'messages'>('setup');
@@ -1023,6 +1029,46 @@ export default function AdminPage() {
     }
   };
 
+  // Save student arrival date
+  const saveArrivalDate = async (studentId: string, arrivalDate: string) => {
+    if (!apiBase) return;
+    setSavingArrivalDate(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/students/${studentId}/arrival-date`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ arrival_date: arrivalDate || null }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || `Failed to update arrival date (${res.status})`);
+      }
+
+      // Refresh students list
+      if (selectedProgramId) {
+        const refreshed = await fetch(
+          `${apiBase}/api/students?program_id=${selectedProgramId}`
+        );
+        const data = await refreshed.json();
+        setStudents(data);
+      }
+
+      setEditingArrivalDateId(null);
+      setEditArrivalDate("");
+    } catch (err: any) {
+      console.error("Save arrival date error:", err);
+      setError(err.message || "Failed to update arrival date");
+    } finally {
+      setSavingArrivalDate(false);
+    }
+  };
+
   // Approve / reject document
   const reviewDocument = async (
     docId: string,
@@ -1499,6 +1545,7 @@ export default function AdminPage() {
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">Email</th>
                     {isNGOProgram && <th className="px-3 py-2">University</th>}
+                    <th className="px-3 py-2">Arrival Date</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2">Risk</th>
                     <th className="px-3 py-2">Progress</th>
@@ -1523,6 +1570,68 @@ export default function AdminPage() {
                           {s.target_university || "—"}
                         </td>
                       )}
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        {editingArrivalDateId === s.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="date"
+                              value={editArrivalDate}
+                              onChange={(e) => setEditArrivalDate(e.target.value)}
+                              className="text-xs border border-slate-300 rounded px-2 py-1 w-32"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => saveArrivalDate(s.id, editArrivalDate)}
+                              disabled={savingArrivalDate}
+                              className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {savingArrivalDate ? "..." : "✓"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingArrivalDateId(null);
+                                setEditArrivalDate("");
+                              }}
+                              className="text-xs px-2 py-1 bg-slate-200 text-slate-700 rounded hover:bg-slate-300"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingArrivalDateId(s.id);
+                              setEditArrivalDate(s.arrival_date || "");
+                            }}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            {s.arrival_date ? (
+                              <>
+                                {new Date(s.arrival_date).toLocaleDateString()}
+                                {(() => {
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const arrival = new Date(s.arrival_date);
+                                  arrival.setHours(0, 0, 0, 0);
+                                  const diffDays = Math.ceil((arrival.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                  return (
+                                    <span className={`ml-1 text-[10px] ${
+                                      diffDays < 0 ? 'text-slate-400' :
+                                      diffDays <= 7 ? 'text-red-600' :
+                                      diffDays <= 30 ? 'text-amber-600' :
+                                      'text-slate-500'
+                                    }`}>
+                                      ({diffDays < 0 ? `${Math.abs(diffDays)}d ago` : `${diffDays}d`})
+                                    </span>
+                                  );
+                                })()}
+                              </>
+                            ) : (
+                              <span className="text-slate-400">Set date...</span>
+                            )}
+                          </button>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs">
                         <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5">
                           {s.status}

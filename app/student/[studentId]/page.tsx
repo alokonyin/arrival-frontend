@@ -34,9 +34,25 @@ export default function StudentChecklistPage() {
   // Collapsible category state
   const [categoryCollapsed, setCategoryCollapsed] = useState<Record<string, boolean>>({});
 
-  // For demo: Assume arrival date is 60 days from now
-  // In production, this should come from student record via API
-  const daysUntilArrival: number = 60;
+  // Arrival date state
+  const [arrivalDate, setArrivalDate] = useState<string | null>(null);
+  const [loadingArrivalDate, setLoadingArrivalDate] = useState(false);
+
+  // Calculate days until arrival
+  const daysUntilArrival: number = (() => {
+    if (!arrivalDate) return 60; // Default fallback if no arrival date set
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const arrival = new Date(arrivalDate);
+    arrival.setHours(0, 0, 0, 0);
+
+    const diffTime = arrival.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+  })();
 
   // Group checklist by category
   const groupedItems = items.reduce((acc, item) => {
@@ -84,6 +100,34 @@ export default function StudentChecklistPage() {
     return { color, bgColor, label, daysUntilDeadline };
   };
 
+  // Fetch student arrival date
+  useEffect(() => {
+    const fetchArrivalDate = async () => {
+      if (!API_BASE_URL || !studentId) return;
+
+      setLoadingArrivalDate(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/students/${studentId}`);
+        if (!res.ok) {
+          console.warn(`Failed to load student data (${res.status})`);
+          return;
+        }
+        const data = await res.json();
+        if (data.arrival_date) {
+          setArrivalDate(data.arrival_date);
+        }
+      } catch (err: any) {
+        console.error("Arrival date fetch error:", err);
+        // Don't set error state - this is non-critical, we'll use default
+      } finally {
+        setLoadingArrivalDate(false);
+      }
+    };
+
+    fetchArrivalDate();
+  }, [studentId]);
+
+  // Fetch checklist
   useEffect(() => {
     const fetchChecklist = async () => {
       if (!API_BASE_URL || !studentId) return;
@@ -225,12 +269,23 @@ export default function StudentChecklistPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className="text-sm font-medium text-blue-900">
-                {daysUntilArrival === 1
-                  ? "Your arrival is tomorrow!"
-                  : daysUntilArrival === 0
-                  ? "Welcome! You arrive today!"
-                  : `${daysUntilArrival} days until your arrival`}
+                {!arrivalDate ? (
+                  "Arrival date pending"
+                ) : daysUntilArrival < 0 ? (
+                  `Welcome! You arrived ${Math.abs(daysUntilArrival)} days ago`
+                ) : daysUntilArrival === 0 ? (
+                  "Welcome! You arrive today!"
+                ) : daysUntilArrival === 1 ? (
+                  "Your arrival is tomorrow!"
+                ) : (
+                  `${daysUntilArrival} days until your arrival`
+                )}
               </span>
+              {arrivalDate && (
+                <span className="text-xs text-blue-700 ml-1">
+                  ({new Date(arrivalDate).toLocaleDateString()})
+                </span>
+              )}
             </div>
             {items.length > 0 && (
               <div className="mt-2">
